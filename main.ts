@@ -4,13 +4,14 @@ function open () {
 }
 function _catch () {
     open()
+    basic.pause(500)
     servos.P0.run(60)
     servos.P1.run(60)
     basic.pause(1000)
     servos.P0.stop()
     servos.P1.stop()
+    basic.pause(500)
     close()
-    basic.pause(5000)
 }
 function leftTurnStep () {
     servos.P0.run(50)
@@ -20,9 +21,9 @@ function leftTurnStep () {
     servos.P1.stop()
 }
 function goForward () {
-    servos.P0.run(100)
-    servos.P1.run(100)
-    basic.pause(100)
+    servos.P0.run(70)
+    servos.P1.run(70)
+    basic.pause(200)
     servos.P0.stop()
     servos.P1.stop()
 }
@@ -81,5 +82,13 @@ basic.forever(function () {
                 . . # . .
                 `)
         }
+    } else {
+        basic.showLeds(`
+            . . # . .
+            . # . # .
+            . # . # .
+            . # . # .
+            . . # . .
+            `)
     }
 })
