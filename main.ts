@@ -1,43 +1,21 @@
-function open () {
+function stepForward() {
+    servos.P0.run(100)
+    servos.P1.run(100)
+    basic.pause(100)
+    servos.P0.stop()
+    servos.P1.stop()
+}
+
+function close() {
+    servos.P2.setAngle(90)
+    pins.servoWritePin(AnalogPin.P8, 15)
+}
+
+function open2() {
     servos.P2.setAngle(15)
     pins.servoWritePin(AnalogPin.P8, 90)
 }
-function _catch () {
-    open()
-    basic.pause(500)
-    servos.P0.run(60)
-    servos.P1.run(60)
-    basic.pause(1000)
-    servos.P0.stop()
-    servos.P1.stop()
-    basic.pause(500)
-    close()
-}
-function leftTurnStep () {
-    servos.P0.run(50)
-    servos.P1.run(-50)
-    basic.pause(10)
-    servos.P0.stop()
-    servos.P1.stop()
-}
-function goForward () {
-    servos.P0.run(70)
-    servos.P1.run(70)
-    basic.pause(200)
-    servos.P0.stop()
-    servos.P1.stop()
-}
-function rightTurnStep () {
-    servos.P0.run(-50)
-    servos.P1.run(50)
-    basic.pause(10)
-    servos.P0.stop()
-    servos.P1.stop()
-}
-function close () {
-    servos.P2.setAngle(90)
-    pins.servoWritePin(AnalogPin.P8, 30)
-}
+
 basic.showString("Hello!")
 basic.showLeds(`
     . # . # .
@@ -46,8 +24,20 @@ basic.showLeds(`
     # # . # #
     . # # # .
     `)
+huskylens.initI2c()
+huskylens.initMode(protocolAlgorithm.ALGORITHM_OBJECT_TRACKING)
+huskylens.clearOSD()
 close()
-basic.forever(function () {
+//  states:
+//  0-forward
+//  1-left
+//  2-right
+//  3-open
+//  4-close
+//  5-stop
+let state = 1
+basic.forever(function on_forever() {
+    
     huskylens.request()
     if (huskylens.isLearned(1)) {
         huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.xCenter)), 20, 20)
@@ -60,19 +50,8 @@ basic.forever(function () {
                 . . # . .
                 . . # . .
                 `)
-            if (huskylens.readeBox(1, Content1.xCenter) < 140) {
-                leftTurnStep()
-            } else {
-                if (huskylens.readeBox(1, Content1.xCenter) > 180) {
-                    rightTurnStep()
-                } else {
-                    if (huskylens.readeBox(1, Content1.yCenter) < 120) {
-                        goForward()
-                    } else {
-                        _catch()
-                    }
-                }
-            }
+            music.play(music.builtInPlayableMelody(Melodies.Dadadadum), music.PlaybackMode.UntilDone)
+            state = 5
         } else {
             basic.showLeds(`
                 . . # . .
@@ -81,14 +60,34 @@ basic.forever(function () {
                 . # . # .
                 . . # . .
                 `)
+            state = 1
         }
-    } else {
-        basic.showLeds(`
-            . . # . .
-            . # . # .
-            . # . # .
-            . # . # .
-            . . # . .
-            `)
+        
     }
+    
+})
+basic.forever(function on_forever2() {
+    if (state == 0) {
+        servos.P0.run(100)
+        servos.P1.run(100)
+    } else if (state == 1) {
+        servos.P0.run(50)
+        servos.P1.run(-50)
+    } else if (state == 2) {
+        servos.P0.run(-50)
+        servos.P1.run(50)
+    } else if (state == 3) {
+        
+    } else if (state == 4) {
+        
+    } else if (state == 5) {
+        servos.P0.run(0)
+        servos.P1.run(0)
+        open2()
+        basic.pause(100)
+        stepForward()
+        basic.pause(100)
+        close()
+    }
+    
 })
