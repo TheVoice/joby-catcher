@@ -83,4 +83,29 @@ robotInit()
 def on_forever():
     readLoop()
     logicLoop()
+
 basic.forever(on_forever)
+
+def on_forever2():
+    if state == 0:
+        servos.P0.run(100)
+        servos.P1.run(100)
+    elif state == 1:
+        servos.P0.run(50)
+        servos.P1.run(-50)
+    elif state == 2:
+        servos.P0.run(-50)
+        servos.P1.run(50)
+    elif state == 3:
+        pass
+    elif state == 4:
+        pass
+    elif state == 5:
+        servos.P0.run(0)
+        servos.P1.run(0)
+        open2()
+        basic.pause(100)
+        stepForward()
+        basic.pause(100)
+        close()
+basic.forever(on_forever2)
