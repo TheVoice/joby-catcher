@@ -1,85 +1,102 @@
-function open () {
-    servos.P2.setAngle(15)
-    pins.servoWritePin(AnalogPin.P8, 90)
+function robotInit () {
+    huskylens.initI2c()
+    huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
+    huskylens.clearOSD()
+    A_close()
+    S_armsClosed = 1
 }
-function _catch () {
-    open()
-    servos.P0.run(60)
-    servos.P1.run(60)
-    basic.pause(1000)
-    servos.P0.stop()
-    servos.P1.stop()
-    close()
-    basic.pause(5000)
+function readLoop () {
+    huskylens.request()
+    if (huskylens.isLearned(1)) {
+        huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.xCenter)), 20, 20)
+        huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.yCenter)), 20, 50)
+        if (huskylens.isAppear(1, HUSKYLENSResultType_t.HUSKYLENSResultBlock)) {
+            S_ballOnScreen = 1
+        } else {
+            if (S_ballOnScreen) {
+                S_weCanCatch = 1
+            }
+            S_ballOnScreen = 0
+        }
+    }
 }
-function leftTurnStep () {
-    servos.P0.run(50)
-    servos.P1.run(-50)
-    basic.pause(10)
-    servos.P0.stop()
-    servos.P1.stop()
-}
-function goForward () {
-    servos.P0.run(100)
-    servos.P1.run(100)
-    basic.pause(100)
-    servos.P0.stop()
-    servos.P1.stop()
-}
-function rightTurnStep () {
+function A_turnRightStep () {
     servos.P0.run(-50)
     servos.P1.run(50)
     basic.pause(10)
     servos.P0.stop()
     servos.P1.stop()
 }
-function close () {
-    servos.P2.setAngle(90)
-    pins.servoWritePin(AnalogPin.P8, 30)
+function A_turnLeftStep () {
+    servos.P0.run(50)
+    servos.P1.run(-50)
+    basic.pause(100)
+    servos.P0.stop()
+    servos.P1.stop()
 }
-basic.showString("Hello!")
-basic.showLeds(`
-    . # . # .
-    . . . . .
-    . . . . .
-    # # . # #
-    . # # # .
-    `)
-close()
-basic.forever(function () {
-    huskylens.request()
-    if (huskylens.isLearned(1)) {
-        huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.xCenter)), 20, 20)
-        huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.yCenter)), 20, 50)
-        if (huskylens.isAppear(1, HUSKYLENSResultType_t.HUSKYLENSResultBlock)) {
-            basic.showLeds(`
-                . . # . .
-                . # # . .
-                # # # . .
-                . . # . .
-                . . # . .
-                `)
-            if (huskylens.readeBox(1, Content1.xCenter) < 140) {
-                leftTurnStep()
-            } else {
-                if (huskylens.readeBox(1, Content1.xCenter) > 180) {
-                    rightTurnStep()
-                } else {
-                    if (huskylens.readeBox(1, Content1.yCenter) < 120) {
-                        goForward()
-                    } else {
-                        _catch()
-                    }
-                }
-            }
+function A_goForwardStep () {
+    servos.P0.run(50)
+    servos.P1.run(50)
+    basic.pause(100)
+    servos.P0.stop()
+    servos.P1.stop()
+}
+function R_search () {
+    A_turnLeftStep()
+}
+function A_close () {
+    servos.P2.setAngle(90)
+    pins.servoWritePin(AnalogPin.P8, 15)
+    S_armsClosed = 1
+}
+function A_open () {
+    servos.P2.setAngle(15)
+    pins.servoWritePin(AnalogPin.P8, 90)
+    S_armsClosed = 0
+}
+function logicLoop () {
+    if (S_ballOnScreen) {
+        basic.showLeds(`
+            . . # . .
+            . # # . .
+            # # # . .
+            . . # . .
+            . . # . .
+            `)
+        A_open()
+        basic.pause(500)
+        A_goForwardStep()
+    } else {
+        if (S_weCanCatch) {
+            S_weCanCatch = 0
+            A_goForwardStep()
+            basic.pause(500)
+            A_close()
         } else {
-            basic.showLeds(`
-                . . # . .
-                . # . # .
-                . # . # .
-                . # . # .
-                . . # . .
-                `)
+            R_search()
         }
+        basic.showLeds(`
+            . . # . .
+            . # . # .
+            . # . # .
+            . # . # .
+            . . # . .
+            `)
     }
+}
+let S_weCanCatch = 0
+let S_ballOnScreen = 0
+let S_armsClosed = 0
+basic.showString("ON3")
+basic.showLeds(`
+    . . # # .
+    # . . # .
+    # # # # #
+    # . . # .
+    . . # # .
+    `)
+robotInit()
+basic.forever(function () {
+    readLoop()
+    logicLoop()
 })
