@@ -23,13 +23,16 @@ huskylens.init_mode(protocolAlgorithm.ALGORITHM_OBJECT_TRACKING)
 huskylens.clear_osd()
 close()
 # states:
-# 0-forward
-# 1-left
-# 2-right
-# 3-open
-# 4-close
-# 5-stop
-state = 1
+# WAITING
+# MOVING
+# SEARCHING
+# FETCHING
+# CATCHING
+# DROPPING
+# STOPPED
+# TO_SAFETY
+# MISSION_COMPLETED
+state = "WAITING"
 
 def on_forever():
     global state
@@ -49,9 +52,7 @@ def on_forever():
                 . . # . .
                 . . # . .
                 """)
-            music.play(music.built_in_playable_melody(Melodies.DADADADUM),
-                music.PlaybackMode.UNTIL_DONE)
-            state = 5
+            state = "FETCHING"
         else:
             basic.show_leds("""
                 . . # . .
@@ -60,29 +61,29 @@ def on_forever():
                 . # . # .
                 . . # . .
                 """)
-            state = 1
+            state = "SEARCHING"
 basic.forever(on_forever)
 
 def on_forever2():
-    if state == 0:
-        servos.P0.run(100)
-        servos.P1.run(100)
-    elif state == 1:
-        servos.P0.run(50)
-        servos.P1.run(-50)
-    elif state == 2:
-        servos.P0.run(-50)
-        servos.P1.run(50)
-    elif state == 3:
-        pass
-    elif state == 4:
-        pass
-    elif state == 5:
+    if state == "WAITING":
         servos.P0.run(0)
         servos.P1.run(0)
-        open2()
-        basic.pause(100)
-        stepForward()
-        basic.pause(100)
-        close()
+    elif state == "MOVING":
+        servos.P0.run(100)
+        servos.P1.run(100)
+    elif state == "SEARCHING":
+        servos.P0.run(-50)
+        servos.P1.run(50)
+    elif state == "FETCHING":
+        pass
+    elif state == "CATCHING":
+        pass
+    elif state == "DROPPING":
+        pass
+    elif state == "STOPPED":
+        pass
+    elif state == "TO_SAFETY":
+        pass
+    elif state == "MISSION_COMPLETED":
+        pass
 basic.forever(on_forever2)

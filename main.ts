@@ -29,13 +29,16 @@ huskylens.initMode(protocolAlgorithm.ALGORITHM_OBJECT_TRACKING)
 huskylens.clearOSD()
 close()
 //  states:
-//  0-forward
-//  1-left
-//  2-right
-//  3-open
-//  4-close
-//  5-stop
-let state = 1
+//  WAITING
+//  MOVING
+//  SEARCHING
+//  FETCHING
+//  CATCHING
+//  DROPPING
+//  STOPPED
+//  TO_SAFETY
+//  MISSION_COMPLETED
+let state = "WAITING"
 basic.forever(function on_forever() {
     
     huskylens.request()
@@ -50,8 +53,7 @@ basic.forever(function on_forever() {
                 . . # . .
                 . . # . .
                 `)
-            music.play(music.builtInPlayableMelody(Melodies.Dadadadum), music.PlaybackMode.UntilDone)
-            state = 5
+            state = "FETCHING"
         } else {
             basic.showLeds(`
                 . . # . .
@@ -60,34 +62,34 @@ basic.forever(function on_forever() {
                 . # . # .
                 . . # . .
                 `)
-            state = 1
+            state = "SEARCHING"
         }
         
     }
     
 })
 basic.forever(function on_forever2() {
-    if (state == 0) {
-        servos.P0.run(100)
-        servos.P1.run(100)
-    } else if (state == 1) {
-        servos.P0.run(50)
-        servos.P1.run(-50)
-    } else if (state == 2) {
-        servos.P0.run(-50)
-        servos.P1.run(50)
-    } else if (state == 3) {
-        
-    } else if (state == 4) {
-        
-    } else if (state == 5) {
+    if (state == "WAITING") {
         servos.P0.run(0)
         servos.P1.run(0)
-        open2()
-        basic.pause(100)
-        stepForward()
-        basic.pause(100)
-        close()
+    } else if (state == "MOVING") {
+        servos.P0.run(100)
+        servos.P1.run(100)
+    } else if (state == "SEARCHING") {
+        servos.P0.run(-50)
+        servos.P1.run(50)
+    } else if (state == "FETCHING") {
+        
+    } else if (state == "CATCHING") {
+        
+    } else if (state == "DROPPING") {
+        
+    } else if (state == "STOPPED") {
+        
+    } else if (state == "TO_SAFETY") {
+        
+    } else if (state == "MISSION_COMPLETED") {
+        
     }
     
 })
