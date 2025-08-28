@@ -1,10 +1,10 @@
 
 > Open this page at [https://thevoice.github.io/joby-catcher/](https://thevoice.github.io/joby-catcher/)
 > 
-# Current TODOs
-## Construction
+## Current TODOs
+### Construction
 * Add a block to the cargo area (rear of the robot)
-## Coding
+### Coding
 * Map the area using wall tags (QR code)
 * Use STATES and send/receive messages (library pending)
 
