@@ -1,11 +1,13 @@
 function robotInit() {
     
+    
     huskylens.initI2c()
     huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
     huskylens.clearOSD()
     A_close()
     S_armsClosed = 1
     A_camMoveZ()
+    state = "SEARCHING"
 }
 
 function readLoop() {
@@ -15,13 +17,11 @@ function readLoop() {
         huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.xCenter)), 20, 20)
         huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.yCenter)), 20, 50)
         if (huskylens.isAppear(1, HUSKYLENSResultType_t.HUSKYLENSResultBlock)) {
-            S_ballOnScreen = 1
+            state = "MOVING"
+            music.play(music.tonePlayable(Note.G, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
         } else {
-            if (S_ballOnScreen) {
-                S_weCanCatch = 1
-            }
-            
-            S_ballOnScreen = 0
+            state = "SEARCHING"
+            music.play(music.tonePlayable(Note.C, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
         }
         
     }
@@ -74,42 +74,6 @@ function A_open() {
     S_armsClosed = 0
 }
 
-function logicLoop() {
-    let state: string;
-    
-    if (S_ballOnScreen) {
-        basic.showLeds(`
-            . . # . .
-            . # # . .
-            # # # . .
-            . . # . .
-            . . # . .
-            `)
-        A_open()
-        //  A_goForwardStep()
-        state = "MOVING"
-    } else {
-        if (S_weCanCatch) {
-            S_weCanCatch = 0
-            A_goForwardStep()
-            A_goForwardStep()
-            A_goForwardStep()
-            A_close()
-        } else {
-            R_search()
-        }
-        
-        basic.showLeds(`
-            . . # . .
-            . # . # .
-            . # . # .
-            . # . # .
-            . . # . .
-            `)
-    }
-    
-}
-
 let S_weCanCatch = 0
 let S_ballOnScreen = 0
 let S_armsClosed = 0
@@ -121,22 +85,32 @@ basic.showLeds(`
     # . . # .
     . . # # .
     `)
+let state = ""
 robotInit()
-let state = "SEARCHING"
-basic.forever(function on_forever() {
-    readLoop()
-    logicLoop()
-})
-basic.forever(function on_forever2() {
+function stateLoop() {
     if (state == "WAITING") {
         servos.P0.run(0)
         servos.P1.run(0)
     } else if (state == "MOVING") {
+        basic.showLeds(`
+            . . # . .
+            . # # . .
+            # # # . .
+            . . # . .
+            . . # . .
+            `)
         servos.P0.run(100)
         servos.P1.run(100)
     } else if (state == "SEARCHING") {
-        servos.P0.run(-50)
-        servos.P1.run(50)
+        basic.showLeds(`
+            . . # . .
+            . # . # .
+            . # . # .
+            . # . # .
+            . . # . .
+            `)
+        servos.P0.run(30)
+        servos.P1.run(-30)
     } else if (state == "FETCHING") {
         
     } else if (state == "CATCHING") {
@@ -151,4 +125,9 @@ basic.forever(function on_forever2() {
         
     }
     
+}
+
+basic.forever(function on_forever() {
+    readLoop()
+    stateLoop()
 })

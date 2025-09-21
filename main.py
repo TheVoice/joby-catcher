@@ -1,14 +1,16 @@
 def robotInit():
     global S_armsClosed
+    global state
     huskylens.init_i2c()
     huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
     huskylens.clear_osd()
     A_close()
     S_armsClosed = 1
     A_camMoveZ()
+    state = "SEARCHING"
     
 def readLoop():
-    global S_ballOnScreen, S_weCanCatch
+    global S_ballOnScreen, S_weCanCatch, state
     huskylens.request()
     if huskylens.is_learned(1):
         huskylens.write_osd(convert_to_text(huskylens.reade_box(1, Content1.X_CENTER)),
@@ -18,11 +20,11 @@ def readLoop():
             20,
             50)
         if huskylens.is_appear(1, HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK):
-            S_ballOnScreen = 1
+            state = "MOVING"
+            music.play(music.tone_playable(Note.G, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
         else:
-            if S_ballOnScreen:
-                S_weCanCatch = 1
-            S_ballOnScreen = 0
+            state = "SEARCHING"
+            music.play(music.tone_playable(Note.C, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
 def A_turnRightStep():
     servos.P0.run(-50)
     servos.P1.run(50)
@@ -55,35 +57,7 @@ def A_open():
     # servos.P2.set_angle(15)
     # pins.servo_write_pin(AnalogPin.P8, 90)
     S_armsClosed = 0
-def logicLoop():
-    global S_weCanCatch
-    if S_ballOnScreen:
-        basic.show_leds("""
-            . . # . .
-            . # # . .
-            # # # . .
-            . . # . .
-            . . # . .
-            """)
-        A_open()
-        # A_goForwardStep()
-        state = "MOVING"
-    else:
-        if S_weCanCatch:
-            S_weCanCatch = 0
-            A_goForwardStep()
-            A_goForwardStep()
-            A_goForwardStep()
-            A_close()
-        else:
-            R_search()
-        basic.show_leds("""
-            . . # . .
-            . # . # .
-            . # . # .
-            . # . # .
-            . . # . .
-            """)
+
 S_weCanCatch = 0
 S_ballOnScreen = 0
 S_armsClosed = 0
@@ -95,24 +69,33 @@ basic.show_leds("""
     # . . # .
     . . # # .
     """)
+state = ""
 robotInit()
-state = "SEARCHING"
 
-def on_forever():
-    readLoop()
-    logicLoop()
-
-basic.forever(on_forever)
-def on_forever2():
+def stateLoop():
     if state == "WAITING":
         servos.P0.run(0)
         servos.P1.run(0)
     elif state == "MOVING":
+        basic.show_leds("""
+            . . # . .
+            . # # . .
+            # # # . .
+            . . # . .
+            . . # . .
+            """)
         servos.P0.run(100)
         servos.P1.run(100)
     elif state == "SEARCHING":
-        servos.P0.run(-50)
-        servos.P1.run(50)
+        basic.show_leds("""
+            . . # . .
+            . # . # .
+            . # . # .
+            . # . # .
+            . . # . .
+            """)
+        servos.P0.run(30)
+        servos.P1.run(-30)
     elif state == "FETCHING":
         pass
     elif state == "CATCHING":
@@ -125,4 +108,9 @@ def on_forever2():
         pass
     elif state == "MISSION_COMPLETED":
         pass
-basic.forever(on_forever2)
+
+def on_forever():
+    readLoop()
+    stateLoop()
+
+basic.forever(on_forever)
