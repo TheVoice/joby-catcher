@@ -66,7 +66,8 @@ def logicLoop():
             . . # . .
             """)
         A_open()
-        A_goForwardStep()
+        # A_goForwardStep()
+        state = "MOVING"
     else:
         if S_weCanCatch:
             S_weCanCatch = 0
@@ -95,33 +96,33 @@ basic.show_leds("""
     . . # # .
     """)
 robotInit()
+state = "SEARCHING"
 
 def on_forever():
     readLoop()
     logicLoop()
 
 basic.forever(on_forever)
-
 def on_forever2():
-    if state == 0:
-        servos.P0.run(100)
-        servos.P1.run(100)
-    elif state == 1:
-        servos.P0.run(50)
-        servos.P1.run(-50)
-    elif state == 2:
-        servos.P0.run(-50)
-        servos.P1.run(50)
-    elif state == 3:
-        pass
-    elif state == 4:
-        pass
-    elif state == 5:
+    if state == "WAITING":
         servos.P0.run(0)
         servos.P1.run(0)
-        open2()
-        basic.pause(100)
-        stepForward()
-        basic.pause(100)
-        close()
+    elif state == "MOVING":
+        servos.P0.run(100)
+        servos.P1.run(100)
+    elif state == "SEARCHING":
+        servos.P0.run(-50)
+        servos.P1.run(50)
+    elif state == "FETCHING":
+        pass
+    elif state == "CATCHING":
+        pass
+    elif state == "DROPPING":
+        pass
+    elif state == "STOPPED":
+        pass
+    elif state == "TO_SAFETY":
+        pass
+    elif state == "MISSION_COMPLETED":
+        pass
 basic.forever(on_forever2)

@@ -1,4 +1,5 @@
-function robotInit () {
+function robotInit() {
+    
     huskylens.initI2c()
     huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
     huskylens.clearOSD()
@@ -6,60 +7,76 @@ function robotInit () {
     S_armsClosed = 1
     A_camMoveZ()
 }
-function readLoop () {
+
+function readLoop() {
+    
     huskylens.request()
     if (huskylens.isLearned(1)) {
         huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.xCenter)), 20, 20)
         huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.yCenter)), 20, 50)
         if (huskylens.isAppear(1, HUSKYLENSResultType_t.HUSKYLENSResultBlock)) {
             S_ballOnScreen = 1
-            music.play(music.tonePlayable(440, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
         } else {
             if (S_ballOnScreen) {
                 S_weCanCatch = 1
             }
+            
             S_ballOnScreen = 0
         }
+        
     }
+    
 }
-function A_turnRightStep () {
+
+function A_turnRightStep() {
     servos.P0.run(-50)
     servos.P1.run(50)
     basic.pause(10)
     servos.P0.stop()
     servos.P1.stop()
 }
-function A_turnLeftStep () {
+
+function A_turnLeftStep() {
     servos.P0.run(50)
     servos.P1.run(-50)
     basic.pause(100)
     servos.P0.stop()
     servos.P1.stop()
 }
-function A_goForwardStep () {
+
+function A_goForwardStep() {
     servos.P0.run(100)
     servos.P1.run(100)
     basic.pause(100)
     servos.P0.stop()
     servos.P1.stop()
 }
-function R_search () {
+
+function R_search() {
     A_turnLeftStep()
 }
-function A_camMoveZ () {
-    servos.P2.setAngle(100)
+
+function A_camMoveZ() {
+    servos.P2.setAngle(90)
 }
-function A_close () {
-    // servos.P2.set_angle(90)
-    // pins.servo_write_pin(AnalogPin.P8, 15)
+
+function A_close() {
+    
+    //  servos.P2.set_angle(90)
+    //  pins.servo_write_pin(AnalogPin.P8, 15)
     S_armsClosed = 1
 }
-function A_open () {
-    // servos.P2.set_angle(15)
-    // pins.servo_write_pin(AnalogPin.P8, 90)
+
+function A_open() {
+    
+    //  servos.P2.set_angle(15)
+    //  pins.servo_write_pin(AnalogPin.P8, 90)
     S_armsClosed = 0
 }
-function logicLoop () {
+
+function logicLoop() {
+    let state: string;
+    
     if (S_ballOnScreen) {
         basic.showLeds(`
             . . # . .
@@ -69,7 +86,8 @@ function logicLoop () {
             . . # . .
             `)
         A_open()
-        A_goForwardStep()
+        //  A_goForwardStep()
+        state = "MOVING"
     } else {
         if (S_weCanCatch) {
             S_weCanCatch = 0
@@ -80,6 +98,7 @@ function logicLoop () {
         } else {
             R_search()
         }
+        
         basic.showLeds(`
             . . # . .
             . # . # .
@@ -88,11 +107,13 @@ function logicLoop () {
             . . # . .
             `)
     }
+    
 }
+
 let S_weCanCatch = 0
 let S_ballOnScreen = 0
 let S_armsClosed = 0
-basic.showString("ON3-3")
+basic.showString("ON3-2")
 basic.showLeds(`
     . . # # .
     # . . # .
@@ -101,7 +122,33 @@ basic.showLeds(`
     . . # # .
     `)
 robotInit()
-basic.forever(function () {
+let state = "SEARCHING"
+basic.forever(function on_forever() {
     readLoop()
     logicLoop()
+})
+basic.forever(function on_forever2() {
+    if (state == "WAITING") {
+        servos.P0.run(0)
+        servos.P1.run(0)
+    } else if (state == "MOVING") {
+        servos.P0.run(100)
+        servos.P1.run(100)
+    } else if (state == "SEARCHING") {
+        servos.P0.run(-50)
+        servos.P1.run(50)
+    } else if (state == "FETCHING") {
+        
+    } else if (state == "CATCHING") {
+        
+    } else if (state == "DROPPING") {
+        
+    } else if (state == "STOPPED") {
+        
+    } else if (state == "TO_SAFETY") {
+        
+    } else if (state == "MISSION_COMPLETED") {
+        
+    }
+    
 })
