@@ -1,6 +1,11 @@
 
 > Open this page at [https://thevoice.github.io/joby-catcher/](https://thevoice.github.io/joby-catcher/)
 
+## To-do
+- return to base - use a tag approach
+- modify front so that corner cases are accounted for
+- Mission Accomplished - when no balls detected for a period of time
+
 ## Use as Extension
 
 This repository can be added as an **extension** in MakeCode.
