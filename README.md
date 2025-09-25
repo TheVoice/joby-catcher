@@ -2,6 +2,7 @@
 > Open this page at [https://thevoice.github.io/joby-catcher/](https://thevoice.github.io/joby-catcher/)
 
 ## To-do
+- [PRIORITY] QR code recognition and tests
 - [PRIORITY]  return to base - use a tag approach
 - modify front so that corner cases are accounted for
 - Mission Accomplished - when no balls detected for a period of time
