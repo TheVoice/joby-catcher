@@ -12,6 +12,19 @@ function robotInit() {
 
 function readLoop() {
     
+    degrees = input.compassHeading()
+    if (degrees < 45) {
+        basic.showArrow(ArrowNames.North)
+    } else if (degrees < 135) {
+        basic.showArrow(ArrowNames.East)
+    } else if (degrees < 225) {
+        basic.showArrow(ArrowNames.South)
+    } else if (degrees < 315) {
+        basic.showArrow(ArrowNames.West)
+    } else {
+        basic.showArrow(ArrowNames.North)
+    }
+    
     huskylens.request()
     if (huskylens.isLearned(1)) {
         huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.xCenter)), 20, 20)
@@ -77,6 +90,7 @@ function A_open() {
 let S_weCanCatch = 0
 let S_ballOnScreen = 0
 let S_armsClosed = 0
+let degrees = 0
 basic.showString("ON3-2")
 basic.showLeds(`
     . . # # .
@@ -87,30 +101,38 @@ basic.showLeds(`
     `)
 let state = ""
 robotInit()
+input.onButtonPressed(Button.A, function on_button_pressed_a() {
+    
+    state = "SEARCHING_TAG"
+})
 function stateLoop() {
+    
     if (state == "WAITING") {
         servos.P0.run(0)
         servos.P1.run(0)
     } else if (state == "MOVING") {
-        basic.showLeds(`
-            . . # . .
-            . # # . .
-            # # # . .
-            . . # . .
-            . . # . .
-            `)
+        //  basic.show_leds("""
+        //      . . # . .
+        //      . # # . .
+        //      # # # . .
+        //      . . # . .
+        //      . . # . .
+        //      """)
         servos.P0.run(100)
         servos.P1.run(100)
     } else if (state == "SEARCHING") {
-        basic.showLeds(`
-            . . # . .
-            . # . # .
-            . # . # .
-            . # . # .
-            . . # . .
-            `)
-        servos.P0.run(30)
-        servos.P1.run(-30)
+        //  basic.show_leds("""
+        //      . . # . .
+        //      . # . # .
+        //      . # . # .
+        //      . # . # .
+        //      . . # . .
+        //      """)
+        servos.P0.run(50)
+        servos.P1.run(-50)
+    } else if (state == "SEARCHING_TAG") {
+        huskylens.initMode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
+        state = "SEARCHING"
     } else if (state == "FETCHING") {
         
     } else if (state == "CATCHING") {

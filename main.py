@@ -10,7 +10,18 @@ def robotInit():
     state = "SEARCHING"
     
 def readLoop():
-    global S_ballOnScreen, S_weCanCatch, state
+    global S_ballOnScreen, S_weCanCatch, state, degrees
+    degrees = input.compass_heading()
+    if degrees < 45:
+        basic.show_arrow(ArrowNames.NORTH)
+    elif degrees < 135:
+        basic.show_arrow(ArrowNames.EAST)
+    elif degrees < 225:
+        basic.show_arrow(ArrowNames.SOUTH)
+    elif degrees < 315:
+        basic.show_arrow(ArrowNames.WEST)
+    else:
+        basic.show_arrow(ArrowNames.NORTH)
     huskylens.request()
     if huskylens.is_learned(1):
         huskylens.write_osd(convert_to_text(huskylens.reade_box(1, Content1.X_CENTER)),
@@ -25,6 +36,7 @@ def readLoop():
         else:
             state = "SEARCHING"
             music.play(music.tone_playable(Note.C, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+            
 def A_turnRightStep():
     servos.P0.run(-50)
     servos.P1.run(50)
@@ -61,6 +73,7 @@ def A_open():
 S_weCanCatch = 0
 S_ballOnScreen = 0
 S_armsClosed = 0
+degrees = 0
 basic.show_string("ON3-2")
 basic.show_leds("""
     . . # # .
@@ -72,30 +85,39 @@ basic.show_leds("""
 state = ""
 robotInit()
 
+def on_button_pressed_a():
+    global state
+    state = "SEARCHING_TAG"
+input.on_button_pressed(Button.A, on_button_pressed_a)
+
 def stateLoop():
+    global state
     if state == "WAITING":
         servos.P0.run(0)
         servos.P1.run(0)
     elif state == "MOVING":
-        basic.show_leds("""
-            . . # . .
-            . # # . .
-            # # # . .
-            . . # . .
-            . . # . .
-            """)
+        # basic.show_leds("""
+        #     . . # . .
+        #     . # # . .
+        #     # # # . .
+        #     . . # . .
+        #     . . # . .
+        #     """)
         servos.P0.run(100)
         servos.P1.run(100)
     elif state == "SEARCHING":
-        basic.show_leds("""
-            . . # . .
-            . # . # .
-            . # . # .
-            . # . # .
-            . . # . .
-            """)
-        servos.P0.run(30)
-        servos.P1.run(-30)
+        # basic.show_leds("""
+        #     . . # . .
+        #     . # . # .
+        #     . # . # .
+        #     . # . # .
+        #     . . # . .
+        #     """)
+        servos.P0.run(50)
+        servos.P1.run(-50)
+    elif state == "SEARCHING_TAG":
+        huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
+        state = "SEARCHING"
     elif state == "FETCHING":
         pass
     elif state == "CATCHING":
