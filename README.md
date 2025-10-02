@@ -3,6 +3,7 @@
 
 ## To-do
 - [PRIORITY] The Tournament will take place in Marrakech (with a carpeted floor) - make sure the robot can operate on rough surface
+  - Move the tall blockade in the back behind the green servos
 - [PRIORITY] QR code recognition and tests
 - [PRIORITY]  return to base - use a tag approach
 - modify front so that corner cases are accounted for
