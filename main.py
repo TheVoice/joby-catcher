@@ -1,6 +1,6 @@
+
 def robotInit():
-    global S_armsClosed
-    global state
+    global S_armsClosed, state
     huskylens.init_i2c()
     huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
     huskylens.clear_osd()
@@ -8,9 +8,10 @@ def robotInit():
     S_armsClosed = 1
     A_camMoveZ()
     state = "SEARCHING"
+    # collected = 0
     
 def readLoop():
-    global S_ballOnScreen, S_weCanCatch, state, degrees
+    global degrees, state
     degrees = input.compass_heading()
     if degrees < 45:
         basic.show_arrow(ArrowNames.NORTH)
@@ -32,10 +33,15 @@ def readLoop():
             50)
         if huskylens.is_appear(1, HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK):
             state = "MOVING"
-            music.play(music.tone_playable(Note.G, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
         else:
             state = "SEARCHING"
-            music.play(music.tone_playable(Note.C, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    # ROBOT COMMUNICATION
+    # time = input.running_time() - use for time since powered on
+    # possible messages:
+    # microbots: mission start
+    # microbots: mission stop
+    # microbots: go to safety
+
             
 def A_turnRightStep():
     servos.P0.run(-50)
@@ -49,47 +55,18 @@ def A_turnLeftStep():
     basic.pause(100)
     servos.P0.stop()
     servos.P1.stop()
-def A_goForwardStep():
-    servos.P0.run(100)
-    servos.P1.run(100)
-    basic.pause(100)
-    servos.P0.stop()
-    servos.P1.stop()
-def R_search():
-    A_turnLeftStep()
-def A_camMoveZ():
-    servos.P2.set_angle(90)
-def A_close():
-    global S_armsClosed
-    # servos.P2.set_angle(90)
-    # pins.servo_write_pin(AnalogPin.P8, 15)
-    S_armsClosed = 1
-def A_open():
-    global S_armsClosed
-    # servos.P2.set_angle(15)
-    # pins.servo_write_pin(AnalogPin.P8, 90)
-    S_armsClosed = 0
-
-S_weCanCatch = 0
-S_ballOnScreen = 0
-S_armsClosed = 0
-degrees = 0
-basic.show_string("ON3-2")
-basic.show_leds("""
-    . . # # .
-    # . . # .
-    # # # # #
-    # . . # .
-    . . # # .
-    """)
-state = ""
-robotInit()
 
 def on_button_pressed_a():
     global state
     state = "SEARCHING_TAG"
 input.on_button_pressed(Button.A, on_button_pressed_a)
 
+def A_goForwardStep():
+    servos.P0.run(100)
+    servos.P1.run(100)
+    basic.pause(100)
+    servos.P0.stop()
+    servos.P1.stop()
 def stateLoop():
     global state
     if state == "WAITING":
@@ -97,24 +74,34 @@ def stateLoop():
         servos.P1.run(0)
     elif state == "MOVING":
         # basic.show_leds("""
-        #     . . # . .
-        #     . # # . .
-        #     # # # . .
-        #     . . # . .
-        #     . . # . .
-        #     """)
-        servos.P0.run(100)
-        servos.P1.run(100)
+        # . . # . .
+        # . # # . .
+        # # # # . .
+        # . . # . .
+        # . . # . .
+        # """)
+        if(huskylens.reade_box(1, Content1.X_CENTER)>200):
+            A_turnLeftStep()
+        elif(huskylens.reade_box(1, Content1.X_CENTER)<120):
+            A_turnRightStep()
+        else:
+            servos.P0.run(100)
+            servos.P1.run(100)
+            pause(500)
+        music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
+            music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING":
         # basic.show_leds("""
-        #     . . # . .
-        #     . # . # .
-        #     . # . # .
-        #     . # . # .
-        #     . . # . .
-        #     """)
-        servos.P0.run(50)
-        servos.P1.run(-50)
+        # . . # . .
+        # . # . # .
+        # . # . # .
+        # . # . # .
+        # . . # . .
+        # """)
+        servos.P0.run(40)
+        servos.P1.run(-40)
+        music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
+            music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING_TAG":
         huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
         state = "SEARCHING"
@@ -130,9 +117,36 @@ def stateLoop():
         pass
     elif state == "MISSION_COMPLETED":
         pass
+def R_search():
+    A_turnLeftStep()
+def A_camMoveZ():
+    servos.P2.set_angle(100)
+def A_close():
+    global S_armsClosed
+    # servos.P2.set_angle(90)
+    # pins.servo_write_pin(AnalogPin.P8, 15)
+    S_armsClosed = 1
+def A_open():
+    global S_armsClosed
+    # servos.P2.set_angle(15)
+    # pins.servo_write_pin(AnalogPin.P8, 90)
+    S_armsClosed = 0
+degrees = 0
+state = ""
+S_armsClosed = 0
+S_ballOnScreen = 0
+S_weCanCatch = 0
+basic.show_string("ON3-2")
+basic.show_leds("""
+    . . # # .
+    # . . # .
+    # # # # #
+    # . . # .
+    . . # # .
+    """)
+robotInit()
 
 def on_forever():
     readLoop()
     stateLoop()
-
 basic.forever(on_forever)
