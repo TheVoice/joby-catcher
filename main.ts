@@ -86,6 +86,10 @@ input.onButtonPressed(Button.A, function on_button_pressed_a() {
     
     state = "SEARCHING_TAG"
 })
+input.onButtonPressed(Button.B, function on_button_pressed_b() {
+    
+    state = "SEARCHING"
+})
 function A_goForwardStep() {
     servos.P0.run(100)
     servos.P1.run(100)

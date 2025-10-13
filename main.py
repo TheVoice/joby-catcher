@@ -85,6 +85,11 @@ def on_button_pressed_a():
     state = "SEARCHING_TAG"
 input.on_button_pressed(Button.A, on_button_pressed_a)
 
+def on_button_pressed_b():
+    global state
+    state = "SEARCHING"
+input.on_button_pressed(Button.B, on_button_pressed_b)    
+
 def A_goForwardStep():
     servos.P0.run(100)
     servos.P1.run(100)
