@@ -1,15 +1,39 @@
-
 def robotInit():
     global S_armsClosed, state
+    #Initialize radio connectivity
+    UTBBot.init_as_bot(UTBBotCode.TeamName.AMA_BOT)
+    UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
+    #Initialize camera
     huskylens.init_i2c()
     huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
     huskylens.clear_osd()
     A_close()
     S_armsClosed = 1
     A_camMoveZ()
+    state = "WAITING"
+    billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
+
+def on_in_background():
+    UTBBot.emit_status()
+    basic.pause(5000)
+control.in_background(on_in_background)
+
+def on_message_start_received():
+    global state
+    billy.say("Starting mission")
     state = "SEARCHING"
-    # collected = 0
-    
+UTBBot.on_message_start_received(on_message_start_received)
+
+def on_message_danger_received():
+    global state
+    billy.say("Returning to base")
+    state = "TO_SAFETY"
+UTBBot.on_message_danger_received(on_message_danger_received)
+
+def on_message_stop_received():
+    billy.say("Ending mission")
+UTBBot.on_message_stop_received(on_message_stop_received)
+
 def readLoop():
     global degrees, state
     degrees = input.compass_heading()
@@ -70,9 +94,11 @@ def A_goForwardStep():
 def stateLoop():
     global state
     if state == "WAITING":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
         servos.P0.run(0)
         servos.P1.run(0)
     elif state == "MOVING":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.MOVING)
         # basic.show_leds("""
         # . . # . .
         # . # # . .
@@ -91,6 +117,7 @@ def stateLoop():
         music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
             music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.SEARCHING)
         # basic.show_leds("""
         # . . # . .
         # . # . # .
@@ -106,16 +133,22 @@ def stateLoop():
         huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
         state = "SEARCHING"
     elif state == "FETCHING":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.FETCHING)
         pass
     elif state == "CATCHING":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.CATCHING)
         pass
     elif state == "DROPPING":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.DROPPING)
         pass
     elif state == "STOPPED":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.STOPPED)
         pass
     elif state == "TO_SAFETY":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.TO_SAFETY)
         pass
     elif state == "MISSION_COMPLETED":
+        UTBBot.new_bot_status(UTBBotCode.BotStatus.MISSION_COMPLETED)
         pass
 def R_search():
     A_turnLeftStep()

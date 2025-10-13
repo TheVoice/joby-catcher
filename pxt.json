@@ -7,7 +7,8 @@
         "microphone": "*",
         "servo": "*",
         "Huskylens": "github:dfrobot/pxt-dfrobot_huskylens#v2.0.7",
-        "amaker-utb-lib": "github:taccart/amaker-unleash-the-geek-lib#v1.0.1"
+        "amaker-utb-lib": "github:taccart/amaker-unleash-the-geek-lib#v1.0.12",
+        "Billy": "github:adamish/pxt-billy#v0.0.25"
     },
     "files": [
         "main.blocks",
