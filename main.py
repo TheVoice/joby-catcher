@@ -40,6 +40,7 @@ def robotInit():
     A_camMoveZ()
     state = "WAITING"
     billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
+    target_box = None
 
 def on_in_background():
     UTBBot.emit_status()
@@ -61,9 +62,6 @@ UTBBot.on_message_danger_received(on_message_danger_received)
 def on_message_stop_received():
     billy.say("Ending mission")
 UTBBot.on_message_stop_received(on_message_stop_received)
-    target_box = None
-    state = "SEARCHING"
-    # collected = 0
 
 def lock_box():
     """Lock the box for 5 seconds"""

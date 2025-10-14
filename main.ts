@@ -1,3 +1,39 @@
+//  Huskylens Frame width and Height
+let [FRAME_W, FRAME_H] = [320, 240]
+//  Global variable to store lock timestamp
+let box_lock_time = 0
+let LOCK_TTL = 5000
+//  5 seconds in milliseconds
+class Box {
+    id: number
+    x: number
+    y: number
+    w: number
+    h: number
+    constructor(id: number, x: number, y: number, w: number, h: number) {
+        this.id = id
+        this.x = x
+        this.y = y
+        this.w = w
+        this.h = h
+    }
+    
+    public size() {
+        return this.w * this.w + this.h * this.h
+    }
+    
+    public mark() {
+        huskylens.writeOSD("X", this.x, this.y)
+    }
+    
+    public to_text(): string {
+        return "[" + this.id + "," + this.x + "," + this.y + "," + this.w + "," + this.h + "]"
+    }
+    
+}
+
+//  FIXED: Initialize target_box AFTER Box class definition
+let target_box : Box = null
 function robotInit() {
     
     // Initialize radio connectivity
@@ -12,6 +48,7 @@ function robotInit() {
     A_camMoveZ()
     state = "WAITING"
     billy.voicePreset(BillyVoicePreset.LittleRobot)
+    target_box = null
 }
 
 control.inBackground(function on_in_background() {
@@ -31,7 +68,70 @@ UTBBot.onMessageDangerReceived(function on_message_danger_received() {
 UTBBot.onMessageStopReceived(function on_message_stop_received() {
     billy.say("Ending mission")
 })
+function lock_box() {
+    /** Lock the box for 5 seconds */
+    
+    box_lock_time = input.runningTime()
+}
+
+function is_box_locked(): boolean {
+    /** Return True if box is still locked, False otherwise */
+    
+    if (box_lock_time == 0) {
+        return false
+    }
+    
+    //  Never locked
+    let elapsed = input.runningTime() - box_lock_time
+    return elapsed < LOCK_TTL
+}
+
+function display_state() {
+    huskylens.writeOSD(state, 10, 0)
+}
+
+function get_closest_box(red_id: number = 1): Box {
+    let x: number;
+    let y: number;
+    let w: number;
+    let h: number;
+    let box: Box;
+    huskylens.clearOSD()
+    display_state()
+    huskylens.request()
+    //  Refresh data
+    let total = huskylens.getBox(HUSKYLENSResultType_t.HUSKYLENSResultBlock)
+    huskylens.writeOSD("Count: " + total, 10, 20)
+    let result = null
+    for (let i = 1; i < total + 1; i++) {
+        //  Lire l'ID du bloc i
+        // id_i = huskylens.reade_box(i, Content1.ID)
+        // if id_i == red_id:
+        huskylens.request()
+        //  Refresh data
+        x = huskylens.readeBox_index(1, i, Content1.xCenter)
+        y = huskylens.readeBox_index(1, i, Content1.yCenter)
+        w = huskylens.readeBox_index(1, i, Content1.width)
+        h = huskylens.readeBox_index(1, i, Content1.height)
+        box = new Box(i, x, y, w, h)
+        huskylens.writeOSD(box.to_text(), 10, 20 + 20 * i)
+        if (i === 1) {
+            result = box
+        } else if (result.y < box.y) {
+            result = box
+        }
+        
+    }
+    if (result) {
+        result.mark()
+    }
+    
+    return result
+}
+
 function readLoop() {
+    let closest_box: Box;
+    display_state()
     
     degrees = input.compassHeading()
     if (degrees < 45) {
@@ -46,11 +146,19 @@ function readLoop() {
         basic.showArrow(ArrowNames.North)
     }
     
-    huskylens.request()
-    if (huskylens.isLearned(1)) {
-        huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.xCenter)), 20, 20)
-        huskylens.writeOSD(convertToText(huskylens.readeBox(1, Content1.yCenter)), 20, 50)
-        if (huskylens.isAppear(1, HUSKYLENSResultType_t.HUSKYLENSResultBlock)) {
+    if (!is_box_locked()) {
+        closest_box = get_closest_box()
+        if (closest_box) {
+            // huskylens.clear_osd()
+            // total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
+            // huskylens.write_osd("Count: " + total, 20, 20)
+            // huskylens.write_osd(closest_box.to_text(), 20, 40)
+            // closest_box.mark()
+            //  Once closest box found:
+            //  1. Set new Target Box
+            //  2. Lock Target Box util collected/get
+            target_box = closest_box
+            lock_box()
             state = "MOVING"
         } else {
             state = "SEARCHING"
@@ -58,14 +166,15 @@ function readLoop() {
         
     }
     
+    //  ROBOT COMMUNICATION
+    //  time = input.running_time() - use for time since powered on
+    //  possible messages:
+    //  microbots: mission start
+    //  microbots: mission stop
+    //  microbots: go to safety
+    display_state()
 }
 
-//  ROBOT COMMUNICATION
-//  time = input.running_time() - use for time since powered on
-//  possible messages:
-//  microbots: mission start
-//  microbots: mission stop
-//  microbots: go to safety
 function A_turnRightStep() {
     servos.P0.run(-50)
     servos.P1.run(50)
@@ -113,18 +222,22 @@ function stateLoop() {
         //  . . # . .
         //  . . # . .
         //  """)
-        if (huskylens.readeBox(1, Content1.xCenter) > 200) {
-            A_turnLeftStep()
-        } else if (huskylens.readeBox(1, Content1.xCenter) < 120) {
-            A_turnRightStep()
-        } else {
-            servos.P0.run(100)
-            servos.P1.run(100)
-            pause(500)
+        if (target_box) {
+            if (target_box.x > 200) {
+                A_turnLeftStep()
+            } else if (target_box.x < 120) {
+                A_turnRightStep()
+            } else {
+                servos.P0.run(100)
+                servos.P1.run(100)
+                pause(500)
+            }
+            
         }
         
-        music.play(music.tonePlayable(392, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
     } else if (state == "SEARCHING") {
+        // music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
+        //     music.PlaybackMode.UNTIL_DONE)
         UTBBot.newBotStatus(UTBBotCode.BotStatus.SEARCHING)
         //  basic.show_leds("""
         //  . . # . .
@@ -135,8 +248,9 @@ function stateLoop() {
         //  """)
         servos.P0.run(40)
         servos.P1.run(-40)
-        music.play(music.tonePlayable(262, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
     } else if (state == "SEARCHING_TAG") {
+        // music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
+        //     music.PlaybackMode.UNTIL_DONE)
         huskylens.initMode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
         state = "SEARCHING"
     } else if (state == "FETCHING") {
@@ -183,6 +297,7 @@ function A_open() {
     S_armsClosed = 0
 }
 
+//  _Main_ 
 let degrees = 0
 let state = ""
 let S_armsClosed = 0
