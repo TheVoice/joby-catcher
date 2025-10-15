@@ -25,9 +25,10 @@ class Box:
 
 # FIXED: Initialize target_box AFTER Box class definition
 target_box : Box = None
+angle_start = -1
 
 def robotInit():
-    global S_armsClosed, state, target_box
+    global S_armsClosed, state, target_box, angle_start
     #Initialize radio connectivity
     UTBBot.init_as_bot(UTBBotCode.TeamName.AMA_BOT)
     UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
@@ -41,6 +42,7 @@ def robotInit():
     state = "WAITING"
     billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
     target_box = None
+    angle_start = -1
 
 def on_in_background():
     UTBBot.emit_status()
@@ -122,7 +124,8 @@ def readLoop():
     else:
         basic.show_arrow(ArrowNames.NORTH)
     
-    if not is_box_locked():
+    
+    if not is_box_locked() and state!="WAITING":
         closest_box = get_closest_box()
         if closest_box:
             #huskylens.clear_osd()
@@ -179,13 +182,14 @@ def A_goForwardStep():
     servos.P0.stop()
     servos.P1.stop()
 def stateLoop():
-    global state, target_box
+    global state, target_box, angle_start
     if state == "WAITING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
         servos.P0.run(0)
         servos.P1.run(0)
     elif state == "MOVING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MOVING)
+        angle_start = -1
         # basic.show_leds("""
         # . . # . .
         # . # # . .
@@ -195,9 +199,9 @@ def stateLoop():
         # """)
         if target_box:
             if(target_box.x > 200):
-                A_turnLeftStep()
-            elif(target_box.x < 120):
                 A_turnRightStep()
+            elif(target_box.x < 120):
+                A_turnLeftStep()
             else:
                 servos.P0.run(100)
                 servos.P1.run(100)
@@ -206,6 +210,15 @@ def stateLoop():
         #    music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.SEARCHING)
+        if(angle_start < 0):
+            angle_start = degrees
+        else:
+            if(degrees == angle_start):
+                #A full turn performed -> move around
+                angle_start = -1
+                servos.P0.run(100)
+                servos.P1.run(100)
+                pause(2000)
         # basic.show_leds("""
         # . . # . .
         # . # . # .
@@ -235,6 +248,7 @@ def stateLoop():
         pass
     elif state == "TO_SAFETY":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.TO_SAFETY)
+        angle_start = -1
         pass
     elif state == "MISSION_COMPLETED":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MISSION_COMPLETED)

@@ -34,6 +34,7 @@ class Box {
 
 //  FIXED: Initialize target_box AFTER Box class definition
 let target_box : Box = null
+let angle_start = -1
 function robotInit() {
     
     // Initialize radio connectivity
@@ -49,6 +50,7 @@ function robotInit() {
     state = "WAITING"
     billy.voicePreset(BillyVoicePreset.LittleRobot)
     target_box = null
+    angle_start = -1
 }
 
 control.inBackground(function on_in_background() {
@@ -146,7 +148,7 @@ function readLoop() {
         basic.showArrow(ArrowNames.North)
     }
     
-    if (!is_box_locked()) {
+    if (!is_box_locked() && state != "WAITING") {
         closest_box = get_closest_box()
         if (closest_box) {
             // huskylens.clear_osd()
@@ -215,6 +217,7 @@ function stateLoop() {
         servos.P1.run(0)
     } else if (state == "MOVING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MOVING)
+        angle_start = -1
         //  basic.show_leds("""
         //  . . # . .
         //  . # # . .
@@ -224,9 +227,9 @@ function stateLoop() {
         //  """)
         if (target_box) {
             if (target_box.x > 200) {
-                A_turnLeftStep()
-            } else if (target_box.x < 120) {
                 A_turnRightStep()
+            } else if (target_box.x < 120) {
+                A_turnLeftStep()
             } else {
                 servos.P0.run(100)
                 servos.P1.run(100)
@@ -239,6 +242,16 @@ function stateLoop() {
         // music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
         UTBBot.newBotStatus(UTBBotCode.BotStatus.SEARCHING)
+        if (angle_start < 0) {
+            angle_start = degrees
+        } else if (degrees == angle_start) {
+            // A full turn performed -> move around
+            angle_start = -1
+            servos.P0.run(100)
+            servos.P1.run(100)
+            pause(2000)
+        }
+        
         //  basic.show_leds("""
         //  . . # . .
         //  . # . # .
@@ -267,6 +280,7 @@ function stateLoop() {
         
     } else if (state == "TO_SAFETY") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.TO_SAFETY)
+        angle_start = -1
         
     } else if (state == "MISSION_COMPLETED") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MISSION_COMPLETED)
