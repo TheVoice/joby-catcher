@@ -59,7 +59,7 @@ function robotInit() {
     huskylens.clearOSD()
     A_close()
     S_armsClosed = 1
-    A_camMoveZ()
+    A_camMoveZ(100)
     state = "WAITING"
     billy.voicePreset(BillyVoicePreset.LittleRobot)
     target_box = null
@@ -70,20 +70,28 @@ control.inBackground(function on_in_background() {
     UTBBot.emitStatus()
     basic.pause(5000)
 })
+function change_to_tag_mode() {
+    A_camMoveZ(90)
+    huskylens.initMode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
+}
+
 UTBBot.onMessageStartReceived(function on_message_start_received() {
     
     billy.say("Starting mission")
     state = "SEARCHING"
 })
-UTBBot.onMessageDangerReceived(function on_message_danger_received() {
+function on_message_danger_received() {
     
     billy.say("Returning to base")
+    change_to_tag_mode()
     state = "TO_SAFETY"
-})
+}
+
+UTBBot.onMessageDangerReceived(on_message_danger_received)
 UTBBot.onMessageStopReceived(function on_message_stop_received() {
     billy.say("Ending mission")
 })
-//  Lock box witha Time To Leave: TTL
+//  Lock box with Time To Leave: TTL
 function lock_box(ttl: number) {
     /** Lock the box for 5 seconds */
     
@@ -225,9 +233,38 @@ input.onButtonPressed(Button.A, function on_button_pressed_a() {
     state = "SEARCHING"
 })
 input.onButtonPressed(Button.B, function on_button_pressed_b() {
-    
-    state = "SEARCHING"
+    on_message_danger_received()
 })
+function capture(): boolean {
+    
+    rotation_time = 0
+    //  basic.show_leds("""
+    //  . . # . .
+    //  . # # . .
+    //  # # # . .
+    //  . . # . .
+    //  . . # . .
+    //  """)
+    if (target_box) {
+        if (target_box.x > 200) {
+            A_turnRightStep()
+        } else if (target_box.x < 120) {
+            A_turnLeftStep()
+        }
+        
+        servos.P0.run(100)
+        servos.P1.run(100)
+        pause(target_box.time_to_reach_box())
+        servos.P0.run(0)
+        servos.P1.run(0)
+        target_box = null
+        unlock_box()
+        return true
+    }
+    
+    return false
+}
+
 function A_goForwardStep() {
     servos.P0.run(100)
     servos.P1.run(100)
@@ -244,33 +281,9 @@ function stateLoop() {
         servos.P1.run(0)
     } else if (state == "MOVING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MOVING)
-        angle_start = -1
-        rotation_time = 0
-        //  basic.show_leds("""
-        //  . . # . .
-        //  . # # . .
-        //  # # # . .
-        //  . . # . .
-        //  . . # . .
-        //  """)
-        if (target_box) {
-            if (target_box.x > 200) {
-                A_turnRightStep()
-            } else if (target_box.x < 120) {
-                A_turnLeftStep()
-            }
-            
-            servos.P0.run(100)
-            servos.P1.run(100)
-            pause(target_box.time_to_reach_box())
-            servos.P0.run(0)
-            servos.P1.run(0)
-            target_box = null
-            unlock_box()
-            UTBBot.incrementCollectedBallsCount(1)
-            state = "SEARCHING"
-        }
-        
+        capture()
+        UTBBot.incrementCollectedBallsCount(1)
+        state = "SEARCHING"
     } else if (state == "SEARCHING") {
         // music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
@@ -313,7 +326,15 @@ function stateLoop() {
         
     } else if (state == "TO_SAFETY") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.TO_SAFETY)
-        angle_start = -1
+        if (capture()) {
+            servos.P0.run(0)
+            servos.P1.run(0)
+            pause(5000)
+            huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
+            A_camMoveZ(100)
+            state = "SEARCHING"
+        }
+        
         
     } else if (state == "MISSION_COMPLETED") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MISSION_COMPLETED)
@@ -326,8 +347,8 @@ function R_search() {
     A_turnLeftStep()
 }
 
-function A_camMoveZ() {
-    servos.P2.setAngle(100)
+function A_camMoveZ(angle: number) {
+    servos.P2.setAngle(angle)
 }
 
 function A_close() {

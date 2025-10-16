@@ -50,7 +50,7 @@ def robotInit():
     huskylens.clear_osd()
     A_close()
     S_armsClosed = 1
-    A_camMoveZ()
+    A_camMoveZ(100)
     state = "WAITING"
     billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
     target_box = None
@@ -60,6 +60,10 @@ def on_in_background():
     UTBBot.emit_status()
     basic.pause(5000)
 control.in_background(on_in_background)
+
+def change_to_tag_mode():
+    A_camMoveZ(90)
+    huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
  
 def on_message_start_received():
     global state
@@ -70,6 +74,7 @@ UTBBot.on_message_start_received(on_message_start_received)
 def on_message_danger_received():
     global state
     billy.say("Returning to base")
+    change_to_tag_mode()
     state = "TO_SAFETY"
 UTBBot.on_message_danger_received(on_message_danger_received)
  
@@ -77,7 +82,7 @@ def on_message_stop_received():
     billy.say("Ending mission")
 UTBBot.on_message_stop_received(on_message_stop_received)
  
-# Lock box witha Time To Leave: TTL
+# Lock box with Time To Leave: TTL
 def lock_box(ttl):
     """Lock the box for 5 seconds"""
     global box_lock_time
@@ -199,10 +204,34 @@ def on_button_pressed_a():
 input.on_button_pressed(Button.A, on_button_pressed_a)
  
 def on_button_pressed_b():
-    global state
-    state = "SEARCHING"
+    on_message_danger_received()
 input.on_button_pressed(Button.B, on_button_pressed_b)
- 
+
+def capture():
+    global state, target_box, angle_start, rotation_time
+    rotation_time = 0
+            # basic.show_leds("""
+            # . . # . .
+            # . # # . .
+            # # # # . .
+            # . . # . .
+            # . . # . .
+            # """)
+    if target_box:
+        if(target_box.x > 200):
+            A_turnRightStep()
+        elif(target_box.x < 120):
+            A_turnLeftStep()
+        servos.P0.run(100)
+        servos.P1.run(100)
+        pause(target_box.time_to_reach_box())
+        servos.P0.run(0)
+        servos.P1.run(0)
+        target_box = None
+        unlock_box()
+        return True
+    return False
+
 def A_goForwardStep():
     servos.P0.run(100)
     servos.P1.run(100)
@@ -217,29 +246,9 @@ def stateLoop():
         servos.P1.run(0)
     elif state == "MOVING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MOVING)
-        angle_start = -1
-        rotation_time = 0
-        # basic.show_leds("""
-        # . . # . .
-        # . # # . .
-        # # # # . .
-        # . . # . .
-        # . . # . .
-        # """)
-        if target_box:
-            if(target_box.x > 200):
-                A_turnRightStep()
-            elif(target_box.x < 120):
-                A_turnLeftStep()
-            servos.P0.run(100)
-            servos.P1.run(100)
-            pause(target_box.time_to_reach_box())
-            servos.P0.run(0)
-            servos.P1.run(0)
-            target_box = None
-            unlock_box()
-            UTBBot.increment_collected_balls_count(1)
-            state = "SEARCHING"
+        capture()
+        UTBBot.increment_collected_balls_count(1)
+        state = "SEARCHING"
         #music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
         #    music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING":
@@ -267,7 +276,7 @@ def stateLoop():
     elif state == "SEARCHING_TAG":
         huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
         state = "SEARCHING"
- 
+
     elif state == "FETCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.FETCHING)
         pass
@@ -282,7 +291,13 @@ def stateLoop():
         pass
     elif state == "TO_SAFETY":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.TO_SAFETY)
-        angle_start = -1
+        if (capture()):
+            servos.P0.run(0)
+            servos.P1.run(0)
+            pause(5000)
+            huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
+            A_camMoveZ(100)
+            state = "SEARCHING"
         pass
     elif state == "MISSION_COMPLETED":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MISSION_COMPLETED)
@@ -291,8 +306,8 @@ def stateLoop():
 def R_search():
     A_turnLeftStep()
  
-def A_camMoveZ():
-    servos.P2.set_angle(100)
+def A_camMoveZ(angle):
+    servos.P2.set_angle(angle)
  
 def A_close():
     global S_armsClosed
