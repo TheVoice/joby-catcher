@@ -1,9 +1,18 @@
 //  Huskylens Frame width and Height
-let [FRAME_W, FRAME_H] = [320, 240]
+let FRAME_W = 320
+let FRAME_H = 240
 //  Global variable to store lock timestamp
 let box_lock_time = 0
+let rotation_time = 0
 let LOCK_TTL = 5000
 //  5 seconds in milliseconds
+//  Mesures
+// # How many time (in sec) to crossed 100 cm
+let TIME_TO_CROSS_100_CM_IN_MILISEC = 19000
+//  secondes
+// # How many seconds to rotate 360 degrees
+let SEC_TO_ROTATE_360 = 5
+//  Secondes
 class Box {
     id: number
     x: number
@@ -20,6 +29,10 @@ class Box {
     
     public size() {
         return this.w * this.w + this.h * this.h
+    }
+    
+    public time_to_reach_box(): number {
+        return (FRAME_H - this.y) * 23
     }
     
     public mark() {
@@ -70,22 +83,34 @@ UTBBot.onMessageDangerReceived(function on_message_danger_received() {
 UTBBot.onMessageStopReceived(function on_message_stop_received() {
     billy.say("Ending mission")
 })
-function lock_box() {
+//  Lock box witha Time To Leave: TTL
+function lock_box(ttl: number) {
     /** Lock the box for 5 seconds */
+    
+    box_lock_time = input.runningTime() + ttl * 1000
+}
+
+function unlock_box() {
+    /** Set to time Now */
     
     box_lock_time = input.runningTime()
 }
 
-function is_box_locked(): boolean {
+function is_box_locked() {
     /** Return True if box is still locked, False otherwise */
     
-    if (box_lock_time == 0) {
-        return false
-    }
+    return input.runningTime() > box_lock_time
+}
+
+function rotationStart(): number {
+    /** Setup rotation time */
+    return input.runningTime()
+}
+
+function isRotationTimeout() {
+    /** Return True if we have been rotating too long, False otherwise */
     
-    //  Never locked
-    let elapsed = input.runningTime() - box_lock_time
-    return elapsed < LOCK_TTL
+    return input.runningTime() > rotation_time + 20000
 }
 
 function display_state() {
@@ -148,9 +173,11 @@ function readLoop() {
         basic.showArrow(ArrowNames.North)
     }
     
-    if (!is_box_locked() && state != "WAITING") {
+    if (is_box_locked() && state == "SEARCHING") {
+        music.play(music.tonePlayable(100, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
         closest_box = get_closest_box()
         if (closest_box) {
+            music.play(music.tonePlayable(262, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
             // huskylens.clear_osd()
             // total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
             // huskylens.write_osd("Count: " + total, 20, 20)
@@ -160,7 +187,7 @@ function readLoop() {
             //  1. Set new Target Box
             //  2. Lock Target Box util collected/get
             target_box = closest_box
-            lock_box()
+            lock_box(target_box.time_to_reach_box())
             state = "MOVING"
         } else {
             state = "SEARCHING"
@@ -180,7 +207,7 @@ function readLoop() {
 function A_turnRightStep() {
     servos.P0.run(-50)
     servos.P1.run(50)
-    basic.pause(10)
+    basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
 }
@@ -188,14 +215,14 @@ function A_turnRightStep() {
 function A_turnLeftStep() {
     servos.P0.run(50)
     servos.P1.run(-50)
-    basic.pause(100)
+    basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
 }
 
 input.onButtonPressed(Button.A, function on_button_pressed_a() {
     
-    state = "SEARCHING_TAG"
+    state = "SEARCHING"
 })
 input.onButtonPressed(Button.B, function on_button_pressed_b() {
     
@@ -218,6 +245,7 @@ function stateLoop() {
     } else if (state == "MOVING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MOVING)
         angle_start = -1
+        rotation_time = 0
         //  basic.show_leds("""
         //  . . # . .
         //  . # # . .
@@ -230,23 +258,28 @@ function stateLoop() {
                 A_turnRightStep()
             } else if (target_box.x < 120) {
                 A_turnLeftStep()
-            } else {
-                servos.P0.run(100)
-                servos.P1.run(100)
-                pause(500)
             }
             
+            servos.P0.run(100)
+            servos.P1.run(100)
+            pause(target_box.time_to_reach_box())
+            servos.P0.run(0)
+            servos.P1.run(0)
+            target_box = null
+            unlock_box()
+            UTBBot.incrementCollectedBallsCount(1)
+            state = "SEARCHING"
         }
         
     } else if (state == "SEARCHING") {
         // music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
         UTBBot.newBotStatus(UTBBotCode.BotStatus.SEARCHING)
-        if (angle_start < 0) {
-            angle_start = degrees
-        } else if (degrees == angle_start) {
+        if (rotation_time == 0) {
+            rotation_time = rotationStart()
+        } else if (isRotationTimeout()) {
             // A full turn performed -> move around
-            angle_start = -1
+            rotation_time = 0
             servos.P0.run(100)
             servos.P1.run(100)
             pause(2000)
@@ -259,8 +292,8 @@ function stateLoop() {
         //  . # . # .
         //  . . # . .
         //  """)
-        servos.P0.run(40)
-        servos.P1.run(-40)
+        servos.P0.run(50)
+        servos.P1.run(-50)
     } else if (state == "SEARCHING_TAG") {
         // music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
@@ -311,7 +344,7 @@ function A_open() {
     S_armsClosed = 0
 }
 
-//  _Main_ 
+//  _Main_
 let degrees = 0
 let state = ""
 let S_armsClosed = 0

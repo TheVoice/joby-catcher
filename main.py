@@ -1,11 +1,20 @@
 # Huskylens Frame width and Height
-FRAME_W, FRAME_H = 320, 240
+FRAME_W = 320
+FRAME_H = 240
 
 # Global variable to store lock timestamp
 box_lock_time = 0
+rotation_time = 0
 LOCK_TTL = 5000  # 5 seconds in milliseconds
-
-
+ 
+# Mesures
+## How many time (in sec) to crossed 100 cm
+TIME_TO_CROSS_100_CM_IN_MILISEC = 19000 # secondes
+ 
+## How many seconds to rotate 360 degrees
+SEC_TO_ROTATE_360 = 5 # Secondes
+ 
+ 
 class Box:
     def __init__(self, id, x, y, w, h):
         self.id = id
@@ -13,20 +22,23 @@ class Box:
         self.y = y
         self.w = w
         self.h = h
-
+ 
     def size(self):
         return self.w * self.w + self.h * self.h
-
+ 
+    def time_to_reach_box(self):
+        return (FRAME_H - self.y)*23
+ 
     def mark(self):
         huskylens.write_osd("X", self.x, self.y)
-
+ 
     def to_text(self):
         return "["+self.id+","+self.x+","+self.y+","+self.w+","+self.h+"]"
-
+ 
 # FIXED: Initialize target_box AFTER Box class definition
 target_box : Box = None
 angle_start = -1
-
+ 
 def robotInit():
     global S_armsClosed, state, target_box, angle_start
     #Initialize radio connectivity
@@ -43,44 +55,56 @@ def robotInit():
     billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
     target_box = None
     angle_start = -1
-
+ 
 def on_in_background():
     UTBBot.emit_status()
     basic.pause(5000)
 control.in_background(on_in_background)
-
+ 
 def on_message_start_received():
     global state
     billy.say("Starting mission")
     state = "SEARCHING"
 UTBBot.on_message_start_received(on_message_start_received)
-
+ 
 def on_message_danger_received():
     global state
     billy.say("Returning to base")
     state = "TO_SAFETY"
 UTBBot.on_message_danger_received(on_message_danger_received)
-
+ 
 def on_message_stop_received():
     billy.say("Ending mission")
 UTBBot.on_message_stop_received(on_message_stop_received)
-
-def lock_box():
+ 
+# Lock box witha Time To Leave: TTL
+def lock_box(ttl):
     """Lock the box for 5 seconds"""
     global box_lock_time
-    box_lock_time = input.running_time()
+    box_lock_time = input.running_time() + (ttl * 1000)
 
+def unlock_box():
+    """Set to time Now"""
+    global box_lock_time
+    box_lock_time = input.running_time()
+  
 def is_box_locked():
     """Return True if box is still locked, False otherwise"""
     global box_lock_time
-    if box_lock_time == 0:
-        return False  # Never locked
-    elapsed = input.running_time() - box_lock_time
-    return elapsed < LOCK_TTL
+    return input.running_time() > box_lock_time
 
+def rotationStart():
+    """Setup rotation time"""
+    return input.running_time()
+  
+def isRotationTimeout():
+    """Return True if we have been rotating too long, False otherwise"""
+    global rotation_time
+    return input.running_time() > rotation_time + 20000
+ 
 def display_state():
     huskylens.write_osd(state, 10, 0)
-
+ 
 def get_closest_box(red_id=1):
     
     huskylens.clear_osd()
@@ -89,7 +113,7 @@ def get_closest_box(red_id=1):
     total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
     huskylens.write_osd("Count: " + total, 10, 20)
     result = None
-
+ 
     for i in range(1, total+1):
         # Lire l'ID du bloc i
         #id_i = huskylens.reade_box(i, Content1.ID)
@@ -108,7 +132,7 @@ def get_closest_box(red_id=1):
     if result:
         result.mark()
     return result
-
+ 
 def readLoop():
     display_state()
     global degrees, state, target_box
@@ -125,9 +149,13 @@ def readLoop():
         basic.show_arrow(ArrowNames.NORTH)
     
     
-    if not is_box_locked() and state!="WAITING":
+    if is_box_locked() and state=="SEARCHING":
+        music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
+                            music.PlaybackMode.UNTIL_DONE)
         closest_box = get_closest_box()
         if closest_box:
+            music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
+                    music.PlaybackMode.UNTIL_DONE)
             #huskylens.clear_osd()
             #total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
             #huskylens.write_osd("Count: " + total, 20, 20)
@@ -137,7 +165,7 @@ def readLoop():
             # 1. Set new Target Box
             # 2. Lock Target Box util collected/get
             target_box = closest_box
-            lock_box()
+            lock_box(target_box.time_to_reach_box())
             state = "MOVING"
         else:
             state = "SEARCHING"
@@ -148,33 +176,33 @@ def readLoop():
         # microbots: mission stop
         # microbots: go to safety
     display_state()
-
+ 
             
 def A_turnRightStep():
     servos.P0.run(-50)
     servos.P1.run(50)
-    basic.pause(10)
+    basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
-
+ 
 def A_turnLeftStep():
     servos.P0.run(50)
     servos.P1.run(-50)
-    basic.pause(100)
+    basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
-
+ 
 def on_button_pressed_a():
     global state
-    state = "SEARCHING_TAG"
-
+    state = "SEARCHING"
+ 
 input.on_button_pressed(Button.A, on_button_pressed_a)
-
+ 
 def on_button_pressed_b():
     global state
     state = "SEARCHING"
-input.on_button_pressed(Button.B, on_button_pressed_b)    
-
+input.on_button_pressed(Button.B, on_button_pressed_b)
+ 
 def A_goForwardStep():
     servos.P0.run(100)
     servos.P1.run(100)
@@ -182,7 +210,7 @@ def A_goForwardStep():
     servos.P0.stop()
     servos.P1.stop()
 def stateLoop():
-    global state, target_box, angle_start
+    global state, target_box, angle_start, rotation_time
     if state == "WAITING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
         servos.P0.run(0)
@@ -190,6 +218,7 @@ def stateLoop():
     elif state == "MOVING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MOVING)
         angle_start = -1
+        rotation_time = 0
         # basic.show_leds("""
         # . . # . .
         # . # # . .
@@ -202,20 +231,25 @@ def stateLoop():
                 A_turnRightStep()
             elif(target_box.x < 120):
                 A_turnLeftStep()
-            else:
-                servos.P0.run(100)
-                servos.P1.run(100)
-                pause(500)
+            servos.P0.run(100)
+            servos.P1.run(100)
+            pause(target_box.time_to_reach_box())
+            servos.P0.run(0)
+            servos.P1.run(0)
+            target_box = None
+            unlock_box()
+            UTBBot.increment_collected_balls_count(1)
+            state = "SEARCHING"
         #music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
         #    music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.SEARCHING)
-        if(angle_start < 0):
-            angle_start = degrees
+        if(rotation_time == 0):
+            rotation_time = rotationStart()
         else:
-            if(degrees == angle_start):
+            if(isRotationTimeout()):
                 #A full turn performed -> move around
-                angle_start = -1
+                rotation_time = 0
                 servos.P0.run(100)
                 servos.P1.run(100)
                 pause(2000)
@@ -226,14 +260,14 @@ def stateLoop():
         # . # . # .
         # . . # . .
         # """)
-        servos.P0.run(40)
-        servos.P1.run(-40)
+        servos.P0.run(50)
+        servos.P1.run(-50)
         #music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         #    music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING_TAG":
         huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
         state = "SEARCHING"
-
+ 
     elif state == "FETCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.FETCHING)
         pass
@@ -253,22 +287,26 @@ def stateLoop():
     elif state == "MISSION_COMPLETED":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MISSION_COMPLETED)
         pass
+ 
 def R_search():
     A_turnLeftStep()
+ 
 def A_camMoveZ():
     servos.P2.set_angle(100)
+ 
 def A_close():
     global S_armsClosed
     # servos.P2.set_angle(90)
     # pins.servo_write_pin(AnalogPin.P8, 15)
     S_armsClosed = 1
+ 
 def A_open():
     global S_armsClosed
     # servos.P2.set_angle(15)
     # pins.servo_write_pin(AnalogPin.P8, 90)
     S_armsClosed = 0
-
-# _Main_ 
+ 
+# _Main_
 degrees = 0
 state = ""
 S_armsClosed = 0
@@ -283,7 +321,7 @@ basic.show_leds("""
     . . # # .
     """)
 robotInit()
-
+ 
 def on_forever():
     readLoop()
     stateLoop()
