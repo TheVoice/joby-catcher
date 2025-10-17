@@ -75,6 +75,11 @@ function change_to_tag_mode() {
     huskylens.initMode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
 }
 
+function change_to_color_mode() {
+    A_camMoveZ(100)
+    huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
+}
+
 UTBBot.onMessageStartReceived(function on_message_start_received() {
     
     billy.say("Starting mission")
@@ -89,7 +94,10 @@ function on_message_danger_received() {
 
 UTBBot.onMessageDangerReceived(on_message_danger_received)
 UTBBot.onMessageStopReceived(function on_message_stop_received() {
+    
     billy.say("Ending mission")
+    change_to_tag_mode()
+    state = "MISSION_COMPLETED"
 })
 //  Lock box with Time To Leave: TTL
 function lock_box(ttl: number) {
@@ -281,9 +289,11 @@ function stateLoop() {
         servos.P1.run(0)
     } else if (state == "MOVING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MOVING)
-        capture()
-        UTBBot.incrementCollectedBallsCount(1)
-        state = "SEARCHING"
+        if (capture()) {
+            UTBBot.incrementCollectedBallsCount(1)
+            state = "SEARCHING"
+        }
+        
     } else if (state == "SEARCHING") {
         // music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
@@ -307,12 +317,9 @@ function stateLoop() {
         //  """)
         servos.P0.run(50)
         servos.P1.run(-50)
-    } else if (state == "SEARCHING_TAG") {
+    } else if (state == "FETCHING") {
         // music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
-        huskylens.initMode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
-        state = "SEARCHING"
-    } else if (state == "FETCHING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.FETCHING)
         
     } else if (state == "CATCHING") {
@@ -330,14 +337,19 @@ function stateLoop() {
             servos.P0.run(0)
             servos.P1.run(0)
             pause(5000)
-            huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
-            A_camMoveZ(100)
+            change_to_color_mode()
             state = "SEARCHING"
         }
         
         
     } else if (state == "MISSION_COMPLETED") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MISSION_COMPLETED)
+        if (capture()) {
+            servos.P0.run(0)
+            servos.P1.run(0)
+            state = "WAITING"
+        }
+        
         
     }
     

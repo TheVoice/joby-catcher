@@ -64,6 +64,10 @@ control.in_background(on_in_background)
 def change_to_tag_mode():
     A_camMoveZ(90)
     huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
+
+def change_to_color_mode():
+    A_camMoveZ(100)
+    huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
  
 def on_message_start_received():
     global state
@@ -79,7 +83,10 @@ def on_message_danger_received():
 UTBBot.on_message_danger_received(on_message_danger_received)
  
 def on_message_stop_received():
+    global state
     billy.say("Ending mission")
+    change_to_tag_mode()
+    state = "MISSION_COMPLETED"
 UTBBot.on_message_stop_received(on_message_stop_received)
  
 # Lock box with Time To Leave: TTL
@@ -246,9 +253,9 @@ def stateLoop():
         servos.P1.run(0)
     elif state == "MOVING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MOVING)
-        capture()
-        UTBBot.increment_collected_balls_count(1)
-        state = "SEARCHING"
+        if(capture()):
+            UTBBot.increment_collected_balls_count(1)
+            state = "SEARCHING"
         #music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
         #    music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING":
@@ -273,10 +280,6 @@ def stateLoop():
         servos.P1.run(-50)
         #music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         #    music.PlaybackMode.UNTIL_DONE)
-    elif state == "SEARCHING_TAG":
-        huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
-        state = "SEARCHING"
-
     elif state == "FETCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.FETCHING)
         pass
@@ -295,12 +298,15 @@ def stateLoop():
             servos.P0.run(0)
             servos.P1.run(0)
             pause(5000)
-            huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
-            A_camMoveZ(100)
+            change_to_color_mode()
             state = "SEARCHING"
         pass
     elif state == "MISSION_COMPLETED":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MISSION_COMPLETED)
+        if(capture()):
+            servos.P0.run(0)
+            servos.P1.run(0)
+            state = "WAITING"
         pass
  
 def R_search():
