@@ -27,7 +27,7 @@ class Box:
         return self.w * self.w + self.h * self.h
  
     def time_to_reach_box(self):
-        return (FRAME_H - self.y)*23
+        return (FRAME_H - self.y)*24
  
     def mark(self):
         huskylens.write_osd("X", self.x, self.y)
@@ -37,28 +37,11 @@ class Box:
  
 # FIXED: Initialize target_box AFTER Box class definition
 target_box : Box = None
-angle_start = -1
- 
-def robotInit():
-    global S_armsClosed, state, target_box, angle_start
-    #Initialize radio connectivity
-    UTBBot.init_as_bot(UTBBotCode.TeamName.AMA_BOT)
-    UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
-    #Initialize camera
-    huskylens.init_i2c()
-    huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
-    huskylens.clear_osd()
-    A_close()
-    S_armsClosed = 1
-    A_camMoveZ(100)
-    state = "WAITING"
-    billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
-    target_box = None
-    angle_start = -1
- 
+  
 def on_in_background():
     UTBBot.emit_status()
     basic.pause(5000)
+    on_in_background()
 control.in_background(on_in_background)
 
 def change_to_tag_mode():
@@ -71,20 +54,20 @@ def change_to_color_mode():
  
 def on_message_start_received():
     global state
-    billy.say("Starting mission")
+    billy.say("Starting")
     state = "SEARCHING"
 UTBBot.on_message_start_received(on_message_start_received)
- 
+
 def on_message_danger_received():
     global state
-    billy.say("Returning to base")
+    billy.say("Returning")
     change_to_tag_mode()
     state = "TO_SAFETY"
 UTBBot.on_message_danger_received(on_message_danger_received)
  
 def on_message_stop_received():
     global state
-    billy.say("Ending mission")
+    billy.say("Ending")
     change_to_tag_mode()
     state = "MISSION_COMPLETED"
 UTBBot.on_message_stop_received(on_message_stop_received)
@@ -161,13 +144,13 @@ def readLoop():
         basic.show_arrow(ArrowNames.NORTH)
     
     
-    if is_box_locked() and state=="SEARCHING":
-        music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
-                            music.PlaybackMode.UNTIL_DONE)
+    if is_box_locked() and (state=="SEARCHING" or state=="TO_SAFETY" or state=="MISSION_COMPLETED"):
+        # music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
+                            # music.PlaybackMode.UNTIL_DONE)
         closest_box = get_closest_box()
         if closest_box:
-            music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
-                    music.PlaybackMode.UNTIL_DONE)
+            # music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
+                    # music.PlaybackMode.UNTIL_DONE)
             #huskylens.clear_osd()
             #total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
             #huskylens.write_osd("Count: " + total, 20, 20)
@@ -179,27 +162,22 @@ def readLoop():
             target_box = closest_box
             lock_box(target_box.time_to_reach_box())
             state = "MOVING"
-        else:
-            state = "SEARCHING"
-        # ROBOT COMMUNICATION
+        # else:
+            # state = "SEARCHING"
         # time = input.running_time() - use for time since powered on
-        # possible messages:
-        # microbots: mission start
-        # microbots: mission stop
-        # microbots: go to safety
     display_state()
  
             
 def A_turnRightStep():
-    servos.P0.run(-50)
-    servos.P1.run(50)
+    servos.P0.run(50)
+    servos.P1.run(-50)
     basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
  
 def A_turnLeftStep():
-    servos.P0.run(50)
-    servos.P1.run(-50)
+    servos.P0.run(-50)
+    servos.P1.run(50)
     basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
@@ -217,6 +195,7 @@ input.on_button_pressed(Button.B, on_button_pressed_b)
 def capture():
     global state, target_box, angle_start, rotation_time
     rotation_time = 0
+    base_offset = 0
             # basic.show_leds("""
             # . . # . .
             # . # # . .
@@ -225,13 +204,15 @@ def capture():
             # . . # . .
             # """)
     if target_box:
-        if(target_box.x > 200):
+        if(target_box.x > 180):
             A_turnRightStep()
-        elif(target_box.x < 120):
+        elif(target_box.x < 140):
             A_turnLeftStep()
         servos.P0.run(100)
         servos.P1.run(100)
-        pause(target_box.time_to_reach_box())
+        if(state == "TO_SAFETY" or state == "MISSION_COMPLETED"):
+            base_offset = 700
+        pause(target_box.time_to_reach_box()-base_offset)
         servos.P0.run(0)
         servos.P1.run(0)
         target_box = None
@@ -268,6 +249,7 @@ def stateLoop():
                 rotation_time = 0
                 servos.P0.run(100)
                 servos.P1.run(100)
+                
                 pause(2000)
         # basic.show_leds("""
         # . . # . .
@@ -276,8 +258,8 @@ def stateLoop():
         # . # . # .
         # . . # . .
         # """)
-        servos.P0.run(50)
-        servos.P1.run(-50)
+        servos.P0.run(40)
+        servos.P1.run(-40)
         #music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         #    music.PlaybackMode.UNTIL_DONE)
     elif state == "FETCHING":
@@ -294,15 +276,50 @@ def stateLoop():
         pass
     elif state == "TO_SAFETY":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.TO_SAFETY)
+        if(rotation_time == 0):
+            rotation_time = rotationStart()
+        else:
+            if(isRotationTimeout()):
+                #A full turn performed -> move around
+                rotation_time = 0
+                servos.P0.run(100)
+                servos.P1.run(100)
+                pause(2000)
+        # basic.show_leds("""
+        # . . # . .
+        # . # . # .
+        # . # . # .
+        # . # . # .
+        # . . # . .
+        # """)
+        servos.P0.run(40)
+        servos.P1.run(-40)
         if (capture()):
             servos.P0.run(0)
             servos.P1.run(0)
             pause(5000)
             change_to_color_mode()
             state = "SEARCHING"
-        pass
     elif state == "MISSION_COMPLETED":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MISSION_COMPLETED)
+        if(rotation_time == 0):
+            rotation_time = rotationStart()
+        else:
+            if(isRotationTimeout()):
+                #A full turn performed -> move around
+                rotation_time = 0
+                servos.P0.run(100)
+                servos.P1.run(100)
+                pause(2000)
+        # basic.show_leds("""
+        # . . # . .
+        # . # . # .
+        # . # . # .
+        # . # . # .
+        # . . # . .
+        # """)
+        servos.P0.run(40)
+        servos.P1.run(-40)
         if(capture()):
             servos.P0.run(0)
             servos.P1.run(0)
@@ -333,7 +350,11 @@ state = ""
 S_armsClosed = 0
 S_ballOnScreen = 0
 S_weCanCatch = 0
-basic.show_string("ON3-2")
+basic.show_string(control.device_name())
+#Initialize radio connectivity
+UTBBot.init_as_bot(UTBBotCode.TeamName.AMA_BOT)
+UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
+UTBBot.emit_heart_beat()
 basic.show_leds("""
     . . # # .
     # . . # .
@@ -341,9 +362,59 @@ basic.show_leds("""
     # . . # .
     . . # # .
     """)
-robotInit()
+    # global S_armsClosed, state, target_box, angle_start
+        #Initialize camera
+huskylens.init_i2c()
+huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
+huskylens.clear_osd()
+A_close()
+S_armsClosed = 1
+A_camMoveZ(100)
+state = "WAITING"
+billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
+target_box = None
+angle_start = -1
  
 def on_forever():
     readLoop()
     stateLoop()
 basic.forever(on_forever)
+
+def melody():
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    pause(70)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.B4, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP4, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    pause(100)
+    music.play(music.tone_playable(Note.BB4, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.GSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    pause(70)
+    music.play(music.tone_playable(Note.E5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.EB5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.B4, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    pause(70)
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    pause(70)
+    music.play(music.tone_playable(Note.BB4, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.B4, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP4, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    pause(120)
+    music.play(music.tone_playable(Note.A4, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.B4, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.D5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.E5, music.beat(BeatFraction.DOUBLE)), music.PlaybackMode.UNTIL_DONE)
+    pause(100)
+control.in_background(melody)

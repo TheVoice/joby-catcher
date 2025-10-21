@@ -32,7 +32,7 @@ class Box {
     }
     
     public time_to_reach_box(): number {
-        return (FRAME_H - this.y) * 23
+        return (FRAME_H - this.y) * 24
     }
     
     public mark() {
@@ -47,29 +47,13 @@ class Box {
 
 //  FIXED: Initialize target_box AFTER Box class definition
 let target_box : Box = null
-let angle_start = -1
-function robotInit() {
-    
-    // Initialize radio connectivity
-    UTBBot.initAsBot(UTBBotCode.TeamName.AmaBot)
-    UTBBot.newBotStatus(UTBBotCode.BotStatus.WAITING)
-    // Initialize camera
-    huskylens.initI2c()
-    huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
-    huskylens.clearOSD()
-    A_close()
-    S_armsClosed = 1
-    A_camMoveZ(100)
-    state = "WAITING"
-    billy.voicePreset(BillyVoicePreset.LittleRobot)
-    target_box = null
-    angle_start = -1
-}
-
-control.inBackground(function on_in_background() {
+function on_in_background() {
     UTBBot.emitStatus()
     basic.pause(5000)
-})
+    on_in_background()
+}
+
+control.inBackground(on_in_background)
 function change_to_tag_mode() {
     A_camMoveZ(90)
     huskylens.initMode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
@@ -82,12 +66,12 @@ function change_to_color_mode() {
 
 UTBBot.onMessageStartReceived(function on_message_start_received() {
     
-    billy.say("Starting mission")
+    billy.say("Starting")
     state = "SEARCHING"
 })
 function on_message_danger_received() {
     
-    billy.say("Returning to base")
+    billy.say("Returning")
     change_to_tag_mode()
     state = "TO_SAFETY"
 }
@@ -95,7 +79,7 @@ function on_message_danger_received() {
 UTBBot.onMessageDangerReceived(on_message_danger_received)
 UTBBot.onMessageStopReceived(function on_message_stop_received() {
     
-    billy.say("Ending mission")
+    billy.say("Ending")
     change_to_tag_mode()
     state = "MISSION_COMPLETED"
 })
@@ -189,11 +173,13 @@ function readLoop() {
         basic.showArrow(ArrowNames.North)
     }
     
-    if (is_box_locked() && state == "SEARCHING") {
-        music.play(music.tonePlayable(100, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    if (is_box_locked() && (state == "SEARCHING" || state == "TO_SAFETY" || state == "MISSION_COMPLETED")) {
+        //  music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
+        //  music.PlaybackMode.UNTIL_DONE)
         closest_box = get_closest_box()
         if (closest_box) {
-            music.play(music.tonePlayable(262, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+            //  music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
+            //  music.PlaybackMode.UNTIL_DONE)
             // huskylens.clear_osd()
             // total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
             // huskylens.write_osd("Count: " + total, 20, 20)
@@ -205,32 +191,27 @@ function readLoop() {
             target_box = closest_box
             lock_box(target_box.time_to_reach_box())
             state = "MOVING"
-        } else {
-            state = "SEARCHING"
         }
         
     }
     
-    //  ROBOT COMMUNICATION
+    //  else:
+    //  state = "SEARCHING"
     //  time = input.running_time() - use for time since powered on
-    //  possible messages:
-    //  microbots: mission start
-    //  microbots: mission stop
-    //  microbots: go to safety
     display_state()
 }
 
 function A_turnRightStep() {
-    servos.P0.run(-50)
-    servos.P1.run(50)
+    servos.P0.run(50)
+    servos.P1.run(-50)
     basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
 }
 
 function A_turnLeftStep() {
-    servos.P0.run(50)
-    servos.P1.run(-50)
+    servos.P0.run(-50)
+    servos.P1.run(50)
     basic.pause(500)
     servos.P0.stop()
     servos.P1.stop()
@@ -246,6 +227,7 @@ input.onButtonPressed(Button.B, function on_button_pressed_b() {
 function capture(): boolean {
     
     rotation_time = 0
+    let base_offset = 0
     //  basic.show_leds("""
     //  . . # . .
     //  . # # . .
@@ -254,15 +236,19 @@ function capture(): boolean {
     //  . . # . .
     //  """)
     if (target_box) {
-        if (target_box.x > 200) {
+        if (target_box.x > 180) {
             A_turnRightStep()
-        } else if (target_box.x < 120) {
+        } else if (target_box.x < 140) {
             A_turnLeftStep()
         }
         
         servos.P0.run(100)
         servos.P1.run(100)
-        pause(target_box.time_to_reach_box())
+        if (state == "TO_SAFETY" || state == "MISSION_COMPLETED") {
+            base_offset = 700
+        }
+        
+        pause(target_box.time_to_reach_box() - base_offset)
         servos.P0.run(0)
         servos.P1.run(0)
         target_box = null
@@ -315,8 +301,8 @@ function stateLoop() {
         //  . # . # .
         //  . . # . .
         //  """)
-        servos.P0.run(50)
-        servos.P1.run(-50)
+        servos.P0.run(40)
+        servos.P1.run(-40)
     } else if (state == "FETCHING") {
         // music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
@@ -333,6 +319,25 @@ function stateLoop() {
         
     } else if (state == "TO_SAFETY") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.TO_SAFETY)
+        if (rotation_time == 0) {
+            rotation_time = rotationStart()
+        } else if (isRotationTimeout()) {
+            // A full turn performed -> move around
+            rotation_time = 0
+            servos.P0.run(100)
+            servos.P1.run(100)
+            pause(2000)
+        }
+        
+        //  basic.show_leds("""
+        //  . . # . .
+        //  . # . # .
+        //  . # . # .
+        //  . # . # .
+        //  . . # . .
+        //  """)
+        servos.P0.run(40)
+        servos.P1.run(-40)
         if (capture()) {
             servos.P0.run(0)
             servos.P1.run(0)
@@ -341,9 +346,27 @@ function stateLoop() {
             state = "SEARCHING"
         }
         
-        
     } else if (state == "MISSION_COMPLETED") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MISSION_COMPLETED)
+        if (rotation_time == 0) {
+            rotation_time = rotationStart()
+        } else if (isRotationTimeout()) {
+            // A full turn performed -> move around
+            rotation_time = 0
+            servos.P0.run(100)
+            servos.P1.run(100)
+            pause(2000)
+        }
+        
+        //  basic.show_leds("""
+        //  . . # . .
+        //  . # . # .
+        //  . # . # .
+        //  . # . # .
+        //  . . # . .
+        //  """)
+        servos.P0.run(40)
+        servos.P1.run(-40)
         if (capture()) {
             servos.P0.run(0)
             servos.P1.run(0)
@@ -383,7 +406,11 @@ let state = ""
 let S_armsClosed = 0
 let S_ballOnScreen = 0
 let S_weCanCatch = 0
-basic.showString("ON3-2")
+basic.showString(control.deviceName())
+// Initialize radio connectivity
+UTBBot.initAsBot(UTBBotCode.TeamName.AmaBot)
+UTBBot.newBotStatus(UTBBotCode.BotStatus.WAITING)
+UTBBot.emitHeartBeat()
 basic.showLeds(`
     . . # # .
     # . . # .
@@ -391,8 +418,57 @@ basic.showLeds(`
     # . . # .
     . . # # .
     `)
-robotInit()
+//  global S_armsClosed, state, target_box, angle_start
+// Initialize camera
+huskylens.initI2c()
+huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
+huskylens.clearOSD()
+A_close()
+S_armsClosed = 1
+A_camMoveZ(100)
+state = "WAITING"
+billy.voicePreset(BillyVoicePreset.LittleRobot)
+target_box = null
+let angle_start = -1
 basic.forever(function on_forever() {
     readLoop()
     stateLoop()
+})
+control.inBackground(function melody() {
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    pause(70)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.B4, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp4, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    pause(100)
+    music.play(music.tonePlayable(Note.Bb4, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.GSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    pause(70)
+    music.play(music.tonePlayable(Note.E5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.Eb5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.B4, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    pause(70)
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    pause(70)
+    music.play(music.tonePlayable(Note.Bb4, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.B4, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp4, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    pause(120)
+    music.play(music.tonePlayable(Note.A4, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.B4, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.D5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.E5, music.beat(BeatFraction.Double)), music.PlaybackMode.UntilDone)
+    pause(100)
 })
