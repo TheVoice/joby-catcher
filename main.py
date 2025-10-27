@@ -13,6 +13,9 @@ TIME_TO_CROSS_100_CM_IN_MILISEC = 19000 # secondes
  
 ## How many seconds to rotate 360 degrees
 SEC_TO_ROTATE_360 = 5 # Secondes
+
+COLOR_CAMERA_DEGREES = 92
+TAG_CAMERA_DEGREES = 90
  
  
 class Box:
@@ -27,8 +30,11 @@ class Box:
         return self.w * self.w + self.h * self.h
  
     def time_to_reach_box(self):
-        return (FRAME_H - self.y)*24
- 
+        advanceTime = (FRAME_H - self.y)*21
+        if(advanceTime < 2000):
+            advanceTime = 2000
+        return advanceTime
+
     def mark(self):
         huskylens.write_osd("X", self.x, self.y)
  
@@ -45,11 +51,11 @@ def on_in_background():
 control.in_background(on_in_background)
 
 def change_to_tag_mode():
-    A_camMoveZ(90)
+    A_camMoveZ(TAG_CAMERA_DEGREES)
     huskylens.init_mode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
 
 def change_to_color_mode():
-    A_camMoveZ(100)
+    A_camMoveZ(COLOR_CAMERA_DEGREES)
     huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
  
 def on_message_start_received():
@@ -130,19 +136,7 @@ def get_closest_box(red_id=1):
  
 def readLoop():
     display_state()
-    global degrees, state, target_box
-    degrees = input.compass_heading()
-    if degrees < 45:
-        basic.show_arrow(ArrowNames.NORTH)
-    elif degrees < 135:
-        basic.show_arrow(ArrowNames.EAST)
-    elif degrees < 225:
-        basic.show_arrow(ArrowNames.SOUTH)
-    elif degrees < 315:
-        basic.show_arrow(ArrowNames.WEST)
-    else:
-        basic.show_arrow(ArrowNames.NORTH)
-    
+    global state, target_box
     
     if is_box_locked() and (state=="SEARCHING" or state=="TO_SAFETY" or state=="MISSION_COMPLETED"):
         # music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
@@ -169,16 +163,16 @@ def readLoop():
  
             
 def A_turnRightStep():
-    servos.P0.run(50)
-    servos.P1.run(-50)
-    basic.pause(500)
+    servos.P0.run(-50)
+    servos.P1.run(50)
+    basic.pause(300)
     servos.P0.stop()
     servos.P1.stop()
  
 def A_turnLeftStep():
-    servos.P0.run(-50)
-    servos.P1.run(50)
-    basic.pause(500)
+    servos.P0.run(50)
+    servos.P1.run(-50)
+    basic.pause(300)
     servos.P0.stop()
     servos.P1.stop()
  
@@ -193,7 +187,7 @@ def on_button_pressed_b():
 input.on_button_pressed(Button.B, on_button_pressed_b)
 
 def capture():
-    global state, target_box, angle_start, rotation_time
+    global state, target_box, rotation_time
     rotation_time = 0
     base_offset = 0
             # basic.show_leds("""
@@ -208,8 +202,8 @@ def capture():
             A_turnRightStep()
         elif(target_box.x < 140):
             A_turnLeftStep()
-        servos.P0.run(100)
-        servos.P1.run(100)
+        servos.P0.run(-100)
+        servos.P1.run(-100)
         if(state == "TO_SAFETY" or state == "MISSION_COMPLETED"):
             base_offset = 700
         pause(target_box.time_to_reach_box()-base_offset)
@@ -227,11 +221,14 @@ def A_goForwardStep():
     servos.P0.stop()
     servos.P1.stop()
 def stateLoop():
-    global state, target_box, angle_start, rotation_time
+    global state, target_box, rotation_time, initialWait
     if state == "WAITING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
-        servos.P0.run(0)
-        servos.P1.run(0)
+        if(initialWait):
+            initialWait = False
+        else:
+            servos.P0.run(0)
+            servos.P1.run(0)
     elif state == "MOVING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MOVING)
         if(capture()):
@@ -247,8 +244,8 @@ def stateLoop():
             if(isRotationTimeout()):
                 #A full turn performed -> move around
                 rotation_time = 0
-                servos.P0.run(100)
-                servos.P1.run(100)
+                servos.P0.run(-100)
+                servos.P1.run(-100)
                 
                 pause(2000)
         # basic.show_leds("""
@@ -258,8 +255,8 @@ def stateLoop():
         # . # . # .
         # . . # . .
         # """)
-        servos.P0.run(40)
-        servos.P1.run(-40)
+        servos.P0.run(-40)
+        servos.P1.run(40)
         #music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         #    music.PlaybackMode.UNTIL_DONE)
     elif state == "FETCHING":
@@ -332,24 +329,11 @@ def R_search():
 def A_camMoveZ(angle):
     servos.P2.set_angle(angle)
  
-def A_close():
-    global S_armsClosed
-    # servos.P2.set_angle(90)
-    # pins.servo_write_pin(AnalogPin.P8, 15)
-    S_armsClosed = 1
- 
-def A_open():
-    global S_armsClosed
-    # servos.P2.set_angle(15)
-    # pins.servo_write_pin(AnalogPin.P8, 90)
-    S_armsClosed = 0
- 
 # _Main_
-degrees = 0
 state = ""
-S_armsClosed = 0
 S_ballOnScreen = 0
 S_weCanCatch = 0
+initialWait = True
 basic.show_string(control.device_name())
 #Initialize radio connectivity
 UTBBot.init_as_bot(UTBBotCode.TeamName.AMA_BOT)
@@ -362,18 +346,14 @@ basic.show_leds("""
     # . . # .
     . . # # .
     """)
-    # global S_armsClosed, state, target_box, angle_start
-        #Initialize camera
+#Initialize camera
 huskylens.init_i2c()
 huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
 huskylens.clear_osd()
-A_close()
-S_armsClosed = 1
-A_camMoveZ(100)
+A_camMoveZ(COLOR_CAMERA_DEGREES)
 state = "WAITING"
 billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
 target_box = None
-angle_start = -1
  
 def on_forever():
     readLoop()
@@ -417,4 +397,4 @@ def melody():
     music.play(music.tone_playable(Note.D5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
     music.play(music.tone_playable(Note.E5, music.beat(BeatFraction.DOUBLE)), music.PlaybackMode.UNTIL_DONE)
     pause(100)
-control.in_background(melody)
+# control.in_background(melody)

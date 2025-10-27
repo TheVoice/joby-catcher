@@ -13,6 +13,8 @@ let TIME_TO_CROSS_100_CM_IN_MILISEC = 19000
 // # How many seconds to rotate 360 degrees
 let SEC_TO_ROTATE_360 = 5
 //  Secondes
+let COLOR_CAMERA_DEGREES = 92
+let TAG_CAMERA_DEGREES = 90
 class Box {
     id: number
     x: number
@@ -32,7 +34,12 @@ class Box {
     }
     
     public time_to_reach_box(): number {
-        return (FRAME_H - this.y) * 24
+        let advanceTime = (FRAME_H - this.y) * 21
+        if (advanceTime < 2000) {
+            advanceTime = 2000
+        }
+        
+        return advanceTime
     }
     
     public mark() {
@@ -55,12 +62,12 @@ function on_in_background() {
 
 control.inBackground(on_in_background)
 function change_to_tag_mode() {
-    A_camMoveZ(90)
+    A_camMoveZ(TAG_CAMERA_DEGREES)
     huskylens.initMode(protocolAlgorithm.ALGORITHM_TAG_RECOGNITION)
 }
 
 function change_to_color_mode() {
-    A_camMoveZ(100)
+    A_camMoveZ(COLOR_CAMERA_DEGREES)
     huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
 }
 
@@ -160,19 +167,6 @@ function readLoop() {
     let closest_box: Box;
     display_state()
     
-    degrees = input.compassHeading()
-    if (degrees < 45) {
-        basic.showArrow(ArrowNames.North)
-    } else if (degrees < 135) {
-        basic.showArrow(ArrowNames.East)
-    } else if (degrees < 225) {
-        basic.showArrow(ArrowNames.South)
-    } else if (degrees < 315) {
-        basic.showArrow(ArrowNames.West)
-    } else {
-        basic.showArrow(ArrowNames.North)
-    }
-    
     if (is_box_locked() && (state == "SEARCHING" || state == "TO_SAFETY" || state == "MISSION_COMPLETED")) {
         //  music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
         //  music.PlaybackMode.UNTIL_DONE)
@@ -202,17 +196,17 @@ function readLoop() {
 }
 
 function A_turnRightStep() {
-    servos.P0.run(50)
-    servos.P1.run(-50)
-    basic.pause(500)
+    servos.P0.run(-50)
+    servos.P1.run(50)
+    basic.pause(300)
     servos.P0.stop()
     servos.P1.stop()
 }
 
 function A_turnLeftStep() {
-    servos.P0.run(-50)
-    servos.P1.run(50)
-    basic.pause(500)
+    servos.P0.run(50)
+    servos.P1.run(-50)
+    basic.pause(300)
     servos.P0.stop()
     servos.P1.stop()
 }
@@ -242,8 +236,8 @@ function capture(): boolean {
             A_turnLeftStep()
         }
         
-        servos.P0.run(100)
-        servos.P1.run(100)
+        servos.P0.run(-100)
+        servos.P1.run(-100)
         if (state == "TO_SAFETY" || state == "MISSION_COMPLETED") {
             base_offset = 700
         }
@@ -271,8 +265,13 @@ function stateLoop() {
     
     if (state == "WAITING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.WAITING)
-        servos.P0.run(0)
-        servos.P1.run(0)
+        if (initialWait) {
+            initialWait = false
+        } else {
+            servos.P0.run(0)
+            servos.P1.run(0)
+        }
+        
     } else if (state == "MOVING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MOVING)
         if (capture()) {
@@ -289,8 +288,8 @@ function stateLoop() {
         } else if (isRotationTimeout()) {
             // A full turn performed -> move around
             rotation_time = 0
-            servos.P0.run(100)
-            servos.P1.run(100)
+            servos.P0.run(-100)
+            servos.P1.run(-100)
             pause(2000)
         }
         
@@ -301,8 +300,8 @@ function stateLoop() {
         //  . # . # .
         //  . . # . .
         //  """)
-        servos.P0.run(40)
-        servos.P1.run(-40)
+        servos.P0.run(-40)
+        servos.P1.run(40)
     } else if (state == "FETCHING") {
         // music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
         //     music.PlaybackMode.UNTIL_DONE)
@@ -386,26 +385,11 @@ function A_camMoveZ(angle: number) {
     servos.P2.setAngle(angle)
 }
 
-function A_close() {
-    
-    //  servos.P2.set_angle(90)
-    //  pins.servo_write_pin(AnalogPin.P8, 15)
-    S_armsClosed = 1
-}
-
-function A_open() {
-    
-    //  servos.P2.set_angle(15)
-    //  pins.servo_write_pin(AnalogPin.P8, 90)
-    S_armsClosed = 0
-}
-
 //  _Main_
-let degrees = 0
 let state = ""
-let S_armsClosed = 0
 let S_ballOnScreen = 0
 let S_weCanCatch = 0
+let initialWait = true
 basic.showString(control.deviceName())
 // Initialize radio connectivity
 UTBBot.initAsBot(UTBBotCode.TeamName.AmaBot)
@@ -418,23 +402,19 @@ basic.showLeds(`
     # . . # .
     . . # # .
     `)
-//  global S_armsClosed, state, target_box, angle_start
 // Initialize camera
 huskylens.initI2c()
 huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
 huskylens.clearOSD()
-A_close()
-S_armsClosed = 1
-A_camMoveZ(100)
+A_camMoveZ(COLOR_CAMERA_DEGREES)
 state = "WAITING"
 billy.voicePreset(BillyVoicePreset.LittleRobot)
 target_box = null
-let angle_start = -1
 basic.forever(function on_forever() {
     readLoop()
     stateLoop()
 })
-control.inBackground(function melody() {
+function melody() {
     music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
     pause(70)
     music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
@@ -471,4 +451,5 @@ control.inBackground(function melody() {
     music.play(music.tonePlayable(Note.D5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
     music.play(music.tonePlayable(Note.E5, music.beat(BeatFraction.Double)), music.PlaybackMode.UntilDone)
     pause(100)
-})
+}
+
