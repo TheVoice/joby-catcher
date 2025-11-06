@@ -13,7 +13,7 @@ let TIME_TO_CROSS_100_CM_IN_MILISEC = 19000
 // # How many seconds to rotate 360 degrees
 let SEC_TO_ROTATE_360 = 5
 //  Secondes
-let COLOR_CAMERA_DEGREES = 92
+let COLOR_CAMERA_DEGREES = 100
 let TAG_CAMERA_DEGREES = 90
 class Box {
     id: number
@@ -34,7 +34,7 @@ class Box {
     }
     
     public time_to_reach_box(): number {
-        let advanceTime = (FRAME_H - this.y) * 21
+        let advanceTime = (FRAME_H - this.y) * 22
         if (advanceTime < 2000) {
             advanceTime = 2000
         }
@@ -56,6 +56,7 @@ class Box {
 let target_box : Box = null
 function on_in_background() {
     UTBBot.emitStatus()
+    music.play(music.tonePlayable(800, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
     basic.pause(5000)
     on_in_background()
 }
@@ -71,24 +72,27 @@ function change_to_color_mode() {
     huskylens.initMode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
 }
 
-UTBBot.onMessageStartReceived(function on_message_start_received() {
+UTBBot.onMessageStartReceived(function on_message_start() {
     
     billy.say("Starting")
     state = "SEARCHING"
+    basic.showIcon(IconNames.Heart)
 })
-function on_message_danger_received() {
+function on_message_danger() {
     
     billy.say("Returning")
     change_to_tag_mode()
     state = "TO_SAFETY"
+    basic.showIcon(IconNames.Skull)
 }
 
-UTBBot.onMessageDangerReceived(on_message_danger_received)
-UTBBot.onMessageStopReceived(function on_message_stop_received() {
+UTBBot.onMessageDangerReceived(on_message_danger)
+UTBBot.onMessageStopReceived(function on_message_stop() {
     
     billy.say("Ending")
     change_to_tag_mode()
     state = "MISSION_COMPLETED"
+    basic.showIcon(IconNames.House)
 })
 //  Lock box with Time To Leave: TTL
 function lock_box(ttl: number) {
@@ -163,42 +167,10 @@ function get_closest_box(red_id: number = 1): Box {
     return result
 }
 
-function readLoop() {
-    let closest_box: Box;
-    display_state()
-    
-    if (is_box_locked() && (state == "SEARCHING" || state == "TO_SAFETY" || state == "MISSION_COMPLETED")) {
-        //  music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
-        //  music.PlaybackMode.UNTIL_DONE)
-        closest_box = get_closest_box()
-        if (closest_box) {
-            //  music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
-            //  music.PlaybackMode.UNTIL_DONE)
-            // huskylens.clear_osd()
-            // total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
-            // huskylens.write_osd("Count: " + total, 20, 20)
-            // huskylens.write_osd(closest_box.to_text(), 20, 40)
-            // closest_box.mark()
-            //  Once closest box found:
-            //  1. Set new Target Box
-            //  2. Lock Target Box util collected/get
-            target_box = closest_box
-            lock_box(target_box.time_to_reach_box())
-            state = "MOVING"
-        }
-        
-    }
-    
-    //  else:
-    //  state = "SEARCHING"
-    //  time = input.running_time() - use for time since powered on
-    display_state()
-}
-
 function A_turnRightStep() {
     servos.P0.run(-50)
     servos.P1.run(50)
-    basic.pause(300)
+    basic.pause(200)
     servos.P0.stop()
     servos.P1.stop()
 }
@@ -206,7 +178,7 @@ function A_turnRightStep() {
 function A_turnLeftStep() {
     servos.P0.run(50)
     servos.P1.run(-50)
-    basic.pause(300)
+    basic.pause(200)
     servos.P0.stop()
     servos.P1.stop()
 }
@@ -216,19 +188,12 @@ input.onButtonPressed(Button.A, function on_button_pressed_a() {
     state = "SEARCHING"
 })
 input.onButtonPressed(Button.B, function on_button_pressed_b() {
-    on_message_danger_received()
+    on_message_danger()
 })
 function capture(): boolean {
     
     rotation_time = 0
     let base_offset = 0
-    //  basic.show_leds("""
-    //  . . # . .
-    //  . # # . .
-    //  # # # . .
-    //  . . # . .
-    //  . . # . .
-    //  """)
     if (target_box) {
         if (target_box.x > 180) {
             A_turnRightStep()
@@ -261,7 +226,9 @@ function A_goForwardStep() {
     servos.P1.stop()
 }
 
-function stateLoop() {
+function mainStateLoop() {
+    let closest_box: Box;
+    display_state()
     
     if (state == "WAITING") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.WAITING)
@@ -280,9 +247,17 @@ function stateLoop() {
         }
         
     } else if (state == "SEARCHING") {
-        // music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
-        //     music.PlaybackMode.UNTIL_DONE)
         UTBBot.newBotStatus(UTBBotCode.BotStatus.SEARCHING)
+        closest_box = get_closest_box()
+        if (closest_box) {
+            //  Once closest box found:
+            //  1. Set new Target Box
+            //  2. Lock Target Box util collected/get
+            target_box = closest_box
+            lock_box(target_box.time_to_reach_box())
+            state = "MOVING"
+        }
+        
         if (rotation_time == 0) {
             rotation_time = rotationStart()
         } else if (isRotationTimeout()) {
@@ -293,18 +268,9 @@ function stateLoop() {
             pause(2000)
         }
         
-        //  basic.show_leds("""
-        //  . . # . .
-        //  . # . # .
-        //  . # . # .
-        //  . # . # .
-        //  . . # . .
-        //  """)
         servos.P0.run(-40)
         servos.P1.run(40)
     } else if (state == "FETCHING") {
-        // music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
-        //     music.PlaybackMode.UNTIL_DONE)
         UTBBot.newBotStatus(UTBBotCode.BotStatus.FETCHING)
         
     } else if (state == "CATCHING") {
@@ -318,6 +284,15 @@ function stateLoop() {
         
     } else if (state == "TO_SAFETY") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.TO_SAFETY)
+        closest_box = get_closest_box()
+        if (closest_box) {
+            //  Once closest box found:
+            //  1. Set new Target Box
+            //  2. Lock Target Box util collected/get
+            target_box = closest_box
+            lock_box(target_box.time_to_reach_box())
+        }
+        
         if (rotation_time == 0) {
             rotation_time = rotationStart()
         } else if (isRotationTimeout()) {
@@ -328,16 +303,10 @@ function stateLoop() {
             pause(2000)
         }
         
-        //  basic.show_leds("""
-        //  . . # . .
-        //  . # . # .
-        //  . # . # .
-        //  . # . # .
-        //  . . # . .
-        //  """)
-        servos.P0.run(40)
-        servos.P1.run(-40)
+        servos.P0.run(-30)
+        servos.P1.run(30)
         if (capture()) {
+            // check why it doesn't pause here (or switch to color either)
             servos.P0.run(0)
             servos.P1.run(0)
             pause(5000)
@@ -347,6 +316,15 @@ function stateLoop() {
         
     } else if (state == "MISSION_COMPLETED") {
         UTBBot.newBotStatus(UTBBotCode.BotStatus.MISSION_COMPLETED)
+        closest_box = get_closest_box()
+        if (closest_box) {
+            //  Once closest box found:
+            //  1. Set new Target Box
+            //  2. Lock Target Box util collected/get
+            target_box = closest_box
+            lock_box(target_box.time_to_reach_box())
+        }
+        
         if (rotation_time == 0) {
             rotation_time = rotationStart()
         } else if (isRotationTimeout()) {
@@ -357,13 +335,6 @@ function stateLoop() {
             pause(2000)
         }
         
-        //  basic.show_leds("""
-        //  . . # . .
-        //  . # . # .
-        //  . # . # .
-        //  . # . # .
-        //  . . # . .
-        //  """)
         servos.P0.run(40)
         servos.P1.run(-40)
         if (capture()) {
@@ -390,15 +361,14 @@ let state = ""
 let S_ballOnScreen = 0
 let S_weCanCatch = 0
 let initialWait = true
-basic.showString(control.deviceName())
-// Initialize radio connectivity
+//  Radio
 UTBBot.initAsBot(UTBBotCode.TeamName.AmaBot)
+basic.showString(control.deviceName())
 UTBBot.newBotStatus(UTBBotCode.BotStatus.WAITING)
-UTBBot.emitHeartBeat()
 basic.showLeds(`
     . . # # .
     # . . # .
-    # # # # #
+    . . . . .
     # . . # .
     . . # # .
     `)
@@ -411,8 +381,7 @@ state = "WAITING"
 billy.voicePreset(BillyVoicePreset.LittleRobot)
 target_box = null
 basic.forever(function on_forever() {
-    readLoop()
-    stateLoop()
+    mainStateLoop()
 })
 function melody() {
     music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)

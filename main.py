@@ -14,7 +14,7 @@ TIME_TO_CROSS_100_CM_IN_MILISEC = 19000 # secondes
 ## How many seconds to rotate 360 degrees
 SEC_TO_ROTATE_360 = 5 # Secondes
 
-COLOR_CAMERA_DEGREES = 92
+COLOR_CAMERA_DEGREES = 100
 TAG_CAMERA_DEGREES = 90
  
  
@@ -30,7 +30,7 @@ class Box:
         return self.w * self.w + self.h * self.h
  
     def time_to_reach_box(self):
-        advanceTime = (FRAME_H - self.y)*21
+        advanceTime = (FRAME_H - self.y)*22
         if(advanceTime < 2000):
             advanceTime = 2000
         return advanceTime
@@ -40,12 +40,14 @@ class Box:
  
     def to_text(self):
         return "["+self.id+","+self.x+","+self.y+","+self.w+","+self.h+"]"
- 
+
 # FIXED: Initialize target_box AFTER Box class definition
 target_box : Box = None
-  
+
 def on_in_background():
     UTBBot.emit_status()
+    music.play(music.tone_playable(800, music.beat(BeatFraction.QUARTER)),
+        music.PlaybackMode.UNTIL_DONE)
     basic.pause(5000)
     on_in_background()
 control.in_background(on_in_background)
@@ -58,25 +60,28 @@ def change_to_color_mode():
     A_camMoveZ(COLOR_CAMERA_DEGREES)
     huskylens.init_mode(protocolAlgorithm.ALGORITHM_COLOR_RECOGNITION)
  
-def on_message_start_received():
+def on_message_start():
     global state
     billy.say("Starting")
     state = "SEARCHING"
-UTBBot.on_message_start_received(on_message_start_received)
+    basic.show_icon(IconNames.HEART)
+UTBBot.on_message_start_received(on_message_start)
 
-def on_message_danger_received():
+def on_message_danger():
     global state
     billy.say("Returning")
     change_to_tag_mode()
     state = "TO_SAFETY"
-UTBBot.on_message_danger_received(on_message_danger_received)
+    basic.show_icon(IconNames.SKULL)
+UTBBot.on_message_danger_received(on_message_danger)
  
-def on_message_stop_received():
+def on_message_stop():
     global state
     billy.say("Ending")
     change_to_tag_mode()
     state = "MISSION_COMPLETED"
-UTBBot.on_message_stop_received(on_message_stop_received)
+    basic.show_icon(IconNames.HOUSE)
+UTBBot.on_message_stop_received(on_message_stop)
  
 # Lock box with Time To Leave: TTL
 def lock_box(ttl):
@@ -133,46 +138,18 @@ def get_closest_box(red_id=1):
     if result:
         result.mark()
     return result
- 
-def readLoop():
-    display_state()
-    global state, target_box
-    
-    if is_box_locked() and (state=="SEARCHING" or state=="TO_SAFETY" or state=="MISSION_COMPLETED"):
-        # music.play(music.tone_playable(100, music.beat(BeatFraction.WHOLE)),
-                            # music.PlaybackMode.UNTIL_DONE)
-        closest_box = get_closest_box()
-        if closest_box:
-            # music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
-                    # music.PlaybackMode.UNTIL_DONE)
-            #huskylens.clear_osd()
-            #total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
-            #huskylens.write_osd("Count: " + total, 20, 20)
-            #huskylens.write_osd(closest_box.to_text(), 20, 40)
-            #closest_box.mark()
-            # Once closest box found:
-            # 1. Set new Target Box
-            # 2. Lock Target Box util collected/get
-            target_box = closest_box
-            lock_box(target_box.time_to_reach_box())
-            state = "MOVING"
-        # else:
-            # state = "SEARCHING"
-        # time = input.running_time() - use for time since powered on
-    display_state()
- 
             
 def A_turnRightStep():
     servos.P0.run(-50)
     servos.P1.run(50)
-    basic.pause(300)
+    basic.pause(200)
     servos.P0.stop()
     servos.P1.stop()
  
 def A_turnLeftStep():
     servos.P0.run(50)
     servos.P1.run(-50)
-    basic.pause(300)
+    basic.pause(200)
     servos.P0.stop()
     servos.P1.stop()
  
@@ -183,20 +160,14 @@ def on_button_pressed_a():
 input.on_button_pressed(Button.A, on_button_pressed_a)
  
 def on_button_pressed_b():
-    on_message_danger_received()
+    on_message_danger()
 input.on_button_pressed(Button.B, on_button_pressed_b)
 
 def capture():
     global state, target_box, rotation_time
     rotation_time = 0
     base_offset = 0
-            # basic.show_leds("""
-            # . . # . .
-            # . # # . .
-            # # # # . .
-            # . . # . .
-            # . . # . .
-            # """)
+
     if target_box:
         if(target_box.x > 180):
             A_turnRightStep()
@@ -220,8 +191,10 @@ def A_goForwardStep():
     basic.pause(100)
     servos.P0.stop()
     servos.P1.stop()
-def stateLoop():
+def mainStateLoop():
+    display_state()
     global state, target_box, rotation_time, initialWait
+
     if state == "WAITING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
         if(initialWait):
@@ -234,10 +207,16 @@ def stateLoop():
         if(capture()):
             UTBBot.increment_collected_balls_count(1)
             state = "SEARCHING"
-        #music.play(music.tone_playable(392, music.beat(BeatFraction.WHOLE)),
-        #    music.PlaybackMode.UNTIL_DONE)
     elif state == "SEARCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.SEARCHING)
+        closest_box = get_closest_box()
+        if closest_box:
+            # Once closest box found:
+            # 1. Set new Target Box
+            # 2. Lock Target Box util collected/get
+            target_box = closest_box
+            lock_box(target_box.time_to_reach_box())
+            state = "MOVING"
         if(rotation_time == 0):
             rotation_time = rotationStart()
         else:
@@ -248,17 +227,8 @@ def stateLoop():
                 servos.P1.run(-100)
                 
                 pause(2000)
-        # basic.show_leds("""
-        # . . # . .
-        # . # . # .
-        # . # . # .
-        # . # . # .
-        # . . # . .
-        # """)
         servos.P0.run(-40)
         servos.P1.run(40)
-        #music.play(music.tone_playable(262, music.beat(BeatFraction.WHOLE)),
-        #    music.PlaybackMode.UNTIL_DONE)
     elif state == "FETCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.FETCHING)
         pass
@@ -273,6 +243,13 @@ def stateLoop():
         pass
     elif state == "TO_SAFETY":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.TO_SAFETY)
+        closest_box = get_closest_box()
+        if closest_box:
+            # Once closest box found:
+            # 1. Set new Target Box
+            # 2. Lock Target Box util collected/get
+            target_box = closest_box
+            lock_box(target_box.time_to_reach_box())
         if(rotation_time == 0):
             rotation_time = rotationStart()
         else:
@@ -282,16 +259,10 @@ def stateLoop():
                 servos.P0.run(100)
                 servos.P1.run(100)
                 pause(2000)
-        # basic.show_leds("""
-        # . . # . .
-        # . # . # .
-        # . # . # .
-        # . # . # .
-        # . . # . .
-        # """)
-        servos.P0.run(40)
-        servos.P1.run(-40)
+        servos.P0.run(-30)
+        servos.P1.run(30)
         if (capture()):
+            #check why it doesn't pause here (or switch to color either)
             servos.P0.run(0)
             servos.P1.run(0)
             pause(5000)
@@ -299,6 +270,13 @@ def stateLoop():
             state = "SEARCHING"
     elif state == "MISSION_COMPLETED":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.MISSION_COMPLETED)
+        closest_box = get_closest_box()
+        if closest_box:
+            # Once closest box found:
+            # 1. Set new Target Box
+            # 2. Lock Target Box util collected/get
+            target_box = closest_box
+            lock_box(target_box.time_to_reach_box())
         if(rotation_time == 0):
             rotation_time = rotationStart()
         else:
@@ -308,13 +286,6 @@ def stateLoop():
                 servos.P0.run(100)
                 servos.P1.run(100)
                 pause(2000)
-        # basic.show_leds("""
-        # . . # . .
-        # . # . # .
-        # . # . # .
-        # . # . # .
-        # . . # . .
-        # """)
         servos.P0.run(40)
         servos.P1.run(-40)
         if(capture()):
@@ -334,15 +305,14 @@ state = ""
 S_ballOnScreen = 0
 S_weCanCatch = 0
 initialWait = True
-basic.show_string(control.device_name())
-#Initialize radio connectivity
+# Radio
 UTBBot.init_as_bot(UTBBotCode.TeamName.AMA_BOT)
+basic.show_string(control.device_name())
 UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
-UTBBot.emit_heart_beat()
 basic.show_leds("""
     . . # # .
     # . . # .
-    # # # # #
+    . . . . .
     # . . # .
     . . # # .
     """)
@@ -356,8 +326,7 @@ billy.voice_preset(BillyVoicePreset.LITTLE_ROBOT)
 target_box = None
  
 def on_forever():
-    readLoop()
-    stateLoop()
+    mainStateLoop()
 basic.forever(on_forever)
 
 def melody():
