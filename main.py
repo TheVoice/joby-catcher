@@ -36,7 +36,8 @@ class Box:
         return advanceTime
 
     def mark(self):
-        huskylens.write_osd("X", self.x, self.y)
+        # huskylens.write_osd("X", self.x, self.y)
+        pass
  
     def to_text(self):
         return "["+self.id+","+self.x+","+self.y+","+self.w+","+self.h+"]"
@@ -46,8 +47,8 @@ target_box : Box = None
 
 def on_in_background():
     UTBBot.emit_status()
-    music.play(music.tone_playable(800, music.beat(BeatFraction.QUARTER)),
-        music.PlaybackMode.UNTIL_DONE)
+    # music.play(music.tone_playable(800, music.beat(BeatFraction.QUARTER)),
+    #     music.PlaybackMode.UNTIL_DONE)
     basic.pause(5000)
     on_in_background()
 control.in_background(on_in_background)
@@ -110,11 +111,12 @@ def isRotationTimeout():
  
 def display_state():
     huskylens.write_osd(state, 10, 0)
+    huskylens.write_osd('Collected: ' + UTBBot.get_collected_balls_count(), 200, 0)
  
 def get_closest_box(red_id=1):
     
-    huskylens.clear_osd()
-    display_state()
+    # huskylens.clear_osd()
+    # display_state()
     huskylens.request()  # Refresh data
     total = huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
     huskylens.write_osd("Count: " + total, 10, 20)
@@ -164,7 +166,7 @@ def on_button_pressed_b():
 input.on_button_pressed(Button.B, on_button_pressed_b)
 
 def capture():
-    global state, target_box, rotation_time
+    global target_box, rotation_time
     rotation_time = 0
     base_offset = 0
 
@@ -223,8 +225,8 @@ def mainStateLoop():
             if(isRotationTimeout()):
                 #A full turn performed -> move around
                 rotation_time = 0
-                servos.P0.run(-100)
-                servos.P1.run(-100)
+                servos.P0.run(70)
+                servos.P1.run(70)
                 
                 pause(2000)
         servos.P0.run(-40)
@@ -262,7 +264,7 @@ def mainStateLoop():
         servos.P0.run(-30)
         servos.P1.run(30)
         if (capture()):
-            #check why it doesn't pause here (or switch to color either)
+            melodyShort()
             servos.P0.run(0)
             servos.P1.run(0)
             pause(5000)
@@ -291,6 +293,7 @@ def mainStateLoop():
         if(capture()):
             servos.P0.run(0)
             servos.P1.run(0)
+            melodyShortEnd()
             state = "WAITING"
         pass
  
@@ -367,3 +370,20 @@ def melody():
     music.play(music.tone_playable(Note.E5, music.beat(BeatFraction.DOUBLE)), music.PlaybackMode.UNTIL_DONE)
     pause(100)
 # control.in_background(melody)
+
+def melodyShort():
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    pause(70)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.B4, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.FSHARP4, music.beat(BeatFraction.WHOLE)), music.PlaybackMode.UNTIL_DONE)
+    pause(100)
+
+def melodyShortEnd():
+    music.play(music.tone_playable(Note.A4, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.B4, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.D5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
+    music.play(music.tone_playable(Note.E5, music.beat(BeatFraction.DOUBLE)), music.PlaybackMode.UNTIL_DONE)
+    pause(100)

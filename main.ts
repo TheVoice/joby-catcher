@@ -43,7 +43,8 @@ class Box {
     }
     
     public mark() {
-        huskylens.writeOSD("X", this.x, this.y)
+        //  huskylens.write_osd("X", self.x, self.y)
+        
     }
     
     public to_text(): string {
@@ -56,7 +57,8 @@ class Box {
 let target_box : Box = null
 function on_in_background() {
     UTBBot.emitStatus()
-    music.play(music.tonePlayable(800, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    //  music.play(music.tone_playable(800, music.beat(BeatFraction.QUARTER)),
+    //      music.PlaybackMode.UNTIL_DONE)
     basic.pause(5000)
     on_in_background()
 }
@@ -126,6 +128,7 @@ function isRotationTimeout() {
 
 function display_state() {
     huskylens.writeOSD(state, 10, 0)
+    huskylens.writeOSD("Collected: " + UTBBot.getCollectedBallsCount(), 200, 0)
 }
 
 function get_closest_box(red_id: number = 1): Box {
@@ -134,8 +137,8 @@ function get_closest_box(red_id: number = 1): Box {
     let w: number;
     let h: number;
     let box: Box;
-    huskylens.clearOSD()
-    display_state()
+    //  huskylens.clear_osd()
+    //  display_state()
     huskylens.request()
     //  Refresh data
     let total = huskylens.getBox(HUSKYLENSResultType_t.HUSKYLENSResultBlock)
@@ -263,8 +266,8 @@ function mainStateLoop() {
         } else if (isRotationTimeout()) {
             // A full turn performed -> move around
             rotation_time = 0
-            servos.P0.run(-100)
-            servos.P1.run(-100)
+            servos.P0.run(70)
+            servos.P1.run(70)
             pause(2000)
         }
         
@@ -306,7 +309,7 @@ function mainStateLoop() {
         servos.P0.run(-30)
         servos.P1.run(30)
         if (capture()) {
-            // check why it doesn't pause here (or switch to color either)
+            melodyShort()
             servos.P0.run(0)
             servos.P1.run(0)
             pause(5000)
@@ -340,6 +343,7 @@ function mainStateLoop() {
         if (capture()) {
             servos.P0.run(0)
             servos.P1.run(0)
+            melodyShortEnd()
             state = "WAITING"
         }
         
@@ -415,6 +419,26 @@ function melody() {
     music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
     music.play(music.tonePlayable(Note.FSharp4, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
     pause(120)
+    music.play(music.tonePlayable(Note.A4, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.B4, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.D5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.E5, music.beat(BeatFraction.Double)), music.PlaybackMode.UntilDone)
+    pause(100)
+}
+
+//  control.in_background(melody)
+function melodyShort() {
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    pause(70)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp5, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.B4, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.CSharp5, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
+    music.play(music.tonePlayable(Note.FSharp4, music.beat(BeatFraction.Whole)), music.PlaybackMode.UntilDone)
+    pause(100)
+}
+
+function melodyShortEnd() {
     music.play(music.tonePlayable(Note.A4, music.beat(BeatFraction.Half)), music.PlaybackMode.UntilDone)
     music.play(music.tonePlayable(Note.B4, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
     music.play(music.tonePlayable(Note.D5, music.beat(BeatFraction.Quarter)), music.PlaybackMode.UntilDone)
