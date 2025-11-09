@@ -76,13 +76,13 @@ function change_to_color_mode() {
 
 UTBBot.onMessageStartReceived(function on_message_start() {
     
-    billy.say("Starting")
+    //  billy.say("Starting")
     state = "SEARCHING"
     basic.showIcon(IconNames.Heart)
 })
 function on_message_danger() {
     
-    billy.say("Returning")
+    //  billy.say("Returning")
     change_to_tag_mode()
     state = "TO_SAFETY"
     basic.showIcon(IconNames.Skull)
@@ -91,7 +91,7 @@ function on_message_danger() {
 UTBBot.onMessageDangerReceived(on_message_danger)
 UTBBot.onMessageStopReceived(function on_message_stop() {
     
-    billy.say("Ending")
+    //  billy.say("Ending")
     change_to_tag_mode()
     state = "MISSION_COMPLETED"
     basic.showIcon(IconNames.House)
@@ -123,7 +123,7 @@ function rotationStart(): number {
 function isRotationTimeout() {
     /** Return True if we have been rotating too long, False otherwise */
     
-    return input.runningTime() > rotation_time + 20000
+    return input.runningTime() > rotation_time + 8000
 }
 
 function display_state() {
@@ -144,6 +144,7 @@ function get_closest_box(red_id: number = 1): Box {
     let total = huskylens.getBox(HUSKYLENSResultType_t.HUSKYLENSResultBlock)
     huskylens.writeOSD("Count: " + total, 10, 20)
     let result = null
+    huskylens.getBox(HUSKYLENSResultType_t.HUSKYLENSResultBlock)
     for (let i = 1; i < total + 1; i++) {
         //  Lire l'ID du bloc i
         // id_i = huskylens.reade_box(i, Content1.ID)
@@ -266,8 +267,8 @@ function mainStateLoop() {
         } else if (isRotationTimeout()) {
             // A full turn performed -> move around
             rotation_time = 0
-            servos.P0.run(70)
-            servos.P1.run(70)
+            servos.P0.run(60)
+            servos.P1.run(60)
             pause(2000)
         }
         
@@ -367,14 +368,14 @@ let S_weCanCatch = 0
 let initialWait = true
 //  Radio
 UTBBot.initAsBot(UTBBotCode.TeamName.AmaBot)
-basic.showString(control.deviceName())
+//  basic.show_string(control.device_name())
 UTBBot.newBotStatus(UTBBotCode.BotStatus.WAITING)
 basic.showLeds(`
-    . . # # .
-    # . . # .
+    . # . # .
     . . . . .
-    # . . # .
-    . . # # .
+    . # # # .
+    . # . # .
+    . # # # .
     `)
 // Initialize camera
 huskylens.initI2c()

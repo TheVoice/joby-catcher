@@ -63,14 +63,14 @@ def change_to_color_mode():
  
 def on_message_start():
     global state
-    billy.say("Starting")
+    # billy.say("Starting")
     state = "SEARCHING"
     basic.show_icon(IconNames.HEART)
 UTBBot.on_message_start_received(on_message_start)
 
 def on_message_danger():
     global state
-    billy.say("Returning")
+    # billy.say("Returning")
     change_to_tag_mode()
     state = "TO_SAFETY"
     basic.show_icon(IconNames.SKULL)
@@ -78,7 +78,7 @@ UTBBot.on_message_danger_received(on_message_danger)
  
 def on_message_stop():
     global state
-    billy.say("Ending")
+    # billy.say("Ending")
     change_to_tag_mode()
     state = "MISSION_COMPLETED"
     basic.show_icon(IconNames.HOUSE)
@@ -107,7 +107,7 @@ def rotationStart():
 def isRotationTimeout():
     """Return True if we have been rotating too long, False otherwise"""
     global rotation_time
-    return input.running_time() > rotation_time + 20000
+    return input.running_time() > rotation_time + 8000
  
 def display_state():
     huskylens.write_osd(state, 10, 0)
@@ -122,6 +122,7 @@ def get_closest_box(red_id=1):
     huskylens.write_osd("Count: " + total, 10, 20)
     result = None
  
+    huskylens.get_box(HUSKYLENSResultType_t.HUSKYLENS_RESULT_BLOCK)
     for i in range(1, total+1):
         # Lire l'ID du bloc i
         #id_i = huskylens.reade_box(i, Content1.ID)
@@ -158,7 +159,6 @@ def A_turnLeftStep():
 def on_button_pressed_a():
     global state
     state = "SEARCHING"
- 
 input.on_button_pressed(Button.A, on_button_pressed_a)
  
 def on_button_pressed_b():
@@ -225,8 +225,8 @@ def mainStateLoop():
             if(isRotationTimeout()):
                 #A full turn performed -> move around
                 rotation_time = 0
-                servos.P0.run(70)
-                servos.P1.run(70)
+                servos.P0.run(60)
+                servos.P1.run(60)
                 
                 pause(2000)
         servos.P0.run(-40)
@@ -310,14 +310,14 @@ S_weCanCatch = 0
 initialWait = True
 # Radio
 UTBBot.init_as_bot(UTBBotCode.TeamName.AMA_BOT)
-basic.show_string(control.device_name())
+# basic.show_string(control.device_name())
 UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
 basic.show_leds("""
-    . . # # .
-    # . . # .
+    . # . # .
     . . . . .
-    # . . # .
-    . . # # .
+    . # # # .
+    . # . # .
+    . # # # .
     """)
 #Initialize camera
 huskylens.init_i2c()
