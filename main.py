@@ -15,7 +15,7 @@ TIME_TO_CROSS_100_CM_IN_MILISEC = 19000 # secondes
 SEC_TO_ROTATE_360 = 5 # Secondes
 
 COLOR_CAMERA_DEGREES = 100
-TAG_CAMERA_DEGREES = 90
+TAG_CAMERA_DEGREES = 85
  
  
 class Box:
@@ -30,7 +30,7 @@ class Box:
         return self.w * self.w + self.h * self.h
  
     def time_to_reach_box(self):
-        advanceTime = (FRAME_H - self.y)*22
+        advanceTime = (FRAME_H - self.y)*19
         if(advanceTime < 2000):
             advanceTime = 2000
         return advanceTime
@@ -112,6 +112,7 @@ def isRotationTimeout():
 def display_state():
     huskylens.write_osd(state, 10, 0)
     huskylens.write_osd('Collected: ' + UTBBot.get_collected_balls_count(), 200, 0)
+    # huskylens.write_osd("RotTime: "+ rotation_time, 100, 100)
  
 def get_closest_box(red_id=1):
     
@@ -167,7 +168,6 @@ input.on_button_pressed(Button.B, on_button_pressed_b)
 
 def capture():
     global target_box, rotation_time
-    rotation_time = 0
     base_offset = 0
 
     if target_box:
@@ -178,12 +178,13 @@ def capture():
         servos.P0.run(-100)
         servos.P1.run(-100)
         if(state == "TO_SAFETY" or state == "MISSION_COMPLETED"):
-            base_offset = 700
+            base_offset = 500
         pause(target_box.time_to_reach_box()-base_offset)
         servos.P0.run(0)
         servos.P1.run(0)
         target_box = None
         unlock_box()
+        rotation_time = 0
         return True
     return False
 
@@ -195,7 +196,7 @@ def A_goForwardStep():
     servos.P1.stop()
 def mainStateLoop():
     display_state()
-    global state, target_box, rotation_time, initialWait
+    global state, target_box, rotation_time, initialWait, turnReverse
 
     if state == "WAITING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.WAITING)
@@ -225,12 +226,15 @@ def mainStateLoop():
             if(isRotationTimeout()):
                 #A full turn performed -> move around
                 rotation_time = 0
-                servos.P0.run(60)
-                servos.P1.run(60)
-                
-                pause(2000)
-        servos.P0.run(-40)
-        servos.P1.run(40)
+                servos.P0.run(50)
+                servos.P1.run(50)
+                if(Math.random_boolean()):
+                    turnReverse = -1
+                else:
+                    turnReverse = 1
+                pause(1000)
+        servos.P0.run(-40*turnReverse)
+        servos.P1.run(40*turnReverse)
     elif state == "FETCHING":
         UTBBot.new_bot_status(UTBBotCode.BotStatus.FETCHING)
         pass
@@ -253,16 +257,17 @@ def mainStateLoop():
             target_box = closest_box
             lock_box(target_box.time_to_reach_box())
         if(rotation_time == 0):
+            # music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
             rotation_time = rotationStart()
         else:
             if(isRotationTimeout()):
                 #A full turn performed -> move around
                 rotation_time = 0
-                servos.P0.run(100)
-                servos.P1.run(100)
+                servos.P0.run(-100)
+                servos.P1.run(-100)
                 pause(2000)
-        servos.P0.run(-30)
-        servos.P1.run(30)
+        servos.P0.run(-40)
+        servos.P1.run(40)
         if (capture()):
             melodyShort()
             servos.P0.run(0)
@@ -281,12 +286,14 @@ def mainStateLoop():
             lock_box(target_box.time_to_reach_box())
         if(rotation_time == 0):
             rotation_time = rotationStart()
+            # music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
         else:
             if(isRotationTimeout()):
+                # music.play(music.tone_playable(Note.CSHARP5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
                 #A full turn performed -> move around
                 rotation_time = 0
-                servos.P0.run(100)
-                servos.P1.run(100)
+                servos.P0.run(-100)
+                servos.P1.run(-100)
                 pause(2000)
         servos.P0.run(40)
         servos.P1.run(-40)
@@ -304,6 +311,7 @@ def A_camMoveZ(angle):
     servos.P2.set_angle(angle)
  
 # _Main_
+turnReverse = 1
 state = ""
 S_ballOnScreen = 0
 S_weCanCatch = 0
@@ -369,7 +377,7 @@ def melody():
     music.play(music.tone_playable(Note.D5, music.beat(BeatFraction.QUARTER)), music.PlaybackMode.UNTIL_DONE)
     music.play(music.tone_playable(Note.E5, music.beat(BeatFraction.DOUBLE)), music.PlaybackMode.UNTIL_DONE)
     pause(100)
-# control.in_background(melody)
+control.in_background(melody)
 
 def melodyShort():
     music.play(music.tone_playable(Note.FSHARP5, music.beat(BeatFraction.HALF)), music.PlaybackMode.UNTIL_DONE)
